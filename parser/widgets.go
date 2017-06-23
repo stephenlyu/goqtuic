@@ -25,6 +25,21 @@ type Set struct {
 	Value string
 }
 
+type Date struct {
+	Year, Month, Day int
+}
+
+type QSizePolicy struct {
+	VSizeType, HSizeType string
+	HorStretch int
+	VerStretch int
+}
+
+type Attribute struct {
+	Name string
+	Value interface{}
+}
+
 type Property struct {
 	Name string
 	Value interface{}
@@ -56,7 +71,9 @@ type QWidget struct {
 	Class string
 	Name string
 	Properties []*Property
+	Attributes []*Attribute
 	Layout *QLayout
 	Children []*QWidget
 	items[] *QWidgetItem 		// ComboBox item
+	ZOrders []string
 }
