@@ -40,6 +40,29 @@ type Attribute struct {
 	Value interface{}
 }
 
+type QColor struct {
+	Alpha int
+	Red int
+	Green int
+	Blue int
+}
+
+type QBrush struct {
+	BrushStyle string
+	Color *QColor
+}
+
+type QColorRole struct {
+	Role string
+	Brush *QBrush
+}
+
+type QPalette struct {
+	Active []*QColorRole
+	InActive []*QColorRole
+	Disabled []*QColorRole
+}
+
 type Property struct {
 	Name string
 	Value interface{}

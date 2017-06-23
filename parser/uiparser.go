@@ -57,6 +57,57 @@ func (this *parser) parseDate(n *xmlx.Node) *Date {
 	return &Date{Year: n.I("", "year"), Month: n.I("", "month"), Day: n.I("", "day")}
 }
 
+func (this *parser) parseColor(n *xmlx.Node) *QColor {
+	return &QColor{
+		Alpha: n.Ai("", "alpha"),
+		Red: n.I("", "red"),
+		Green: n.I("", "green"),
+		Blue: n.I("", "blue"),
+	}
+}
+
+func (this *parser) parseBrush(n *xmlx.Node) *QBrush {
+	ch := n.SelectNode("", "color")
+	return &QBrush{
+		BrushStyle: n.As("", "brushstyle"),
+		Color: this.parseColor(ch),
+	}
+}
+
+func (this *parser) parseColorRole(n *xmlx.Node) *QColorRole {
+	ch := n.SelectNode("", "brush")
+	return &QColorRole{
+		Role: n.As("", "role"),
+		Brush: this.parseBrush(ch),
+	}
+}
+
+func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
+	ret := &QPalette{}
+
+	childCount := len(this.elementChildren(n))
+	if childCount != 3 {
+		log.Fatalf("Bad palette with %d children", childCount)
+	}
+
+	activeNodes := n.SelectNodes("", "active")
+	for _, ch := range activeNodes {
+		ret.Active = append(ret.Active, this.parseColorRole(ch))
+	}
+
+	inActiveNodes := n.SelectNodes("", "inactive")
+	for _, ch := range inActiveNodes {
+		ret.InActive = append(ret.InActive, this.parseColorRole(ch))
+	}
+
+	disabledNodes := n.SelectNodes("", "disabled")
+	for _, ch := range disabledNodes {
+		ret.Disabled = append(ret.Disabled, this.parseColorRole(ch))
+	}
+
+	return ret
+}
+
 func (this *parser) parseAttribute(n *xmlx.Node) *Attribute {
 	var value interface{}
 
@@ -250,6 +301,8 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 		value = this.parseSizePolicy(child)
 	case "date":
 		value = this.parseDate(child)
+	case "palette":
+		value = this.parsePalette(child)
 	default:
 		log.Fatalf("Bad property type %s of %v", child.Name.Local, child)
 	}
