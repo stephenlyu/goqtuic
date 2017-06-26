@@ -64,6 +64,14 @@ type Set struct {
 	Value string
 }
 
+type Cursor struct {
+	Value int
+}
+
+type CursorShape struct {
+	Value string
+}
+
 type Date struct {
 	Year, Month, Day int
 }

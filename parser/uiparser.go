@@ -9,6 +9,7 @@ import (
 type parser struct {
 	doc *xmlx.Document
 
+	uiFile string
 	class string
 
 	buttonGroups []string
@@ -18,7 +19,7 @@ type parser struct {
 }
 
 func NewParser(uiFile string) (error, *parser) {
-	ret := &parser{}
+	ret := &parser{uiFile: uiFile}
 	ret.doc = xmlx.New()
 	err := ret.doc.LoadFile(uiFile, nil)
 	if err != nil {
@@ -562,9 +563,9 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	case "cstring":
 		value = n.S("", "cstring")
 	case "cursor":
-		value = n.I("", "cursor")
+		value = &Cursor{ Value:n.I("", "cursor")}
 	case "cursorshape":
-		value = n.S("", "cursorshape")
+		value = &CursorShape{Value: n.S("", "cursorshape")}
 	case "enum":
 		value = this.parseEnum(child)
 	case "font":
@@ -598,6 +599,7 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	case "double":
 		value = n.F64("", "double")
 	case "date":
+		fmt.Println(child)
 		value = this.parseDate(child)
 	case "time":
 		value = this.parseTime(child)

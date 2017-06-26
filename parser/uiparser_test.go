@@ -9,16 +9,17 @@ import (
 
 var _ = Describe("TestParser", func() {
 	It("test", func() {
-		err, parser := NewParser("../ui/ai_comparability_dialog.ui")
+		err, compiler := NewCompiler("../ui/ai_comparability_dialog.ui")
 		if err != nil {
 			panic(err)
 		}
 
-		parser.Parse()
+		compiler.Parse()
+		compiler.GenerateCode("main", "")
 	})
 })
 
-var _ = Describe("TestParserMore", func() {
+var _ = Describe("TestMoreParser", func() {
 	It("test", func() {
 		root := "../ui"
 		fileList, err := ioutil.ReadDir(root)
