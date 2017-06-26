@@ -77,7 +77,13 @@ type DateTime struct {
 	Hour, Minute, Second int
 }
 
+type String struct {
+	NotR bool
+	Value string
+}
+
 type StringList struct {
+	NotR bool
 	Strings []string
 }
 

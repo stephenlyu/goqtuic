@@ -153,10 +153,14 @@ func (this *parser) parseStringList(n *xmlx.Node) *StringList {
 	children := n.SelectNodesDirect("", "string")
 	strings := make([]string, len(children))
 	for i, ch := range children {
-		strings[i] = ch.S("", "string")
+		strings[i] = ch.GetValue()
 	}
 
-	return &StringList{Strings: strings}
+	return &StringList{Strings: strings, NotR: n.Ab("", "notr")}
+}
+
+func (this *parser) parseString(n *xmlx.Node) *String {
+	return &String{Value: n.GetValue(), NotR: n.Ab("", "notr")}
 }
 
 func (this *parser) parseColor(n *xmlx.Node) *QColor {
@@ -205,7 +209,6 @@ func (this *parser) parseColorGroup(nodes []*xmlx.Node) *ColorGroup {
 }
 
 func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
-	fmt.Println(n)
 	ret := &QPalette{}
 
 	childCount := len(this.elementChildren(n))
@@ -365,8 +368,6 @@ func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 		case "attribute":
 			attributes = append(attributes, this.parseProperty(ch))
 		default:
-			fmt.Println(n)
-			fmt.Println(ch)
 			log.Fatalf("Bad child type %s of layout", ch.Name.Local)
 		}
 	}
@@ -393,7 +394,6 @@ func (this *parser) parseWidgetItem(n *xmlx.Node) *QWidgetItem {
 	}
 
 	itemNodes := n.SelectNodesDirect("", "item")
-	fmt.Println(n, len(itemNodes))
 	items := make([]*QWidgetItem, len(itemNodes))
 	for i, ch := range itemNodes {
 		items[i] = this.parseWidgetItem(ch)
@@ -497,7 +497,6 @@ func (this *parser) parseWidget(n *xmlx.Node) *QWidget {
 		case "column":
 			columns = append(columns, this.parseColumn(ch))
 		case "item":
-			fmt.Println(ch)
 			items = append(items, this.parseWidgetItem(ch))
 
 		case "layout":
@@ -589,7 +588,7 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	case "size":
 		value = this.parseSize(child)
 	case "string":
-		value = n.S("", "string")
+		value = this.parseString(child)
 	case "stringlist":
 		value = this.parseStringList(child)
 	case "number":
@@ -652,6 +651,3 @@ func (this *parser) Parse() error {
 	return nil
 }
 
-func (this *parser) GenerateCode(goFile string) error {
-	return nil
-}

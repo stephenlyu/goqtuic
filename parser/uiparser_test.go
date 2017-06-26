@@ -33,11 +33,11 @@ func TestMoreFiles(t *testing.T) {
 
 		filePath := filepath.Join(root, file.Name())
 		fmt.Println(filePath)
-		err, parser := NewParser(filePath)
+		err, compiler := NewCompiler(filePath)
 		if err != nil {
 			panic(err)
 		}
 
-		parser.Parse()
+		compiler.Parse()
 	}
 }
