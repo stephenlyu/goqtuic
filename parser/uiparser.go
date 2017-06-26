@@ -27,6 +27,12 @@ func NewParser(uiFile string) (error, *parser) {
 	return nil, ret
 }
 
+func (this *parser) parsePoint(n *xmlx.Node) *QPoint {
+	width := n.I("", "x")
+	height := n.I("", "y")
+	return &QPoint{width, height}
+}
+
 func (this *parser) parseSize(n *xmlx.Node) *QSize {
 	width := n.I("", "width")
 	height := n.I("", "height")
@@ -41,8 +47,77 @@ func (this *parser) parseRect(n *xmlx.Node) *QRect {
 	return &QRect{x, y, width, height}
 }
 
+func (this *parser) parsePointF(n *xmlx.Node) *QPointF {
+	width := n.F64("", "x")
+	height := n.F64("", "y")
+	return &QPointF{width, height}
+}
+
+func (this *parser) parseSizeF(n *xmlx.Node) *QSizeF {
+	width := n.F64("", "width")
+	height := n.F64("", "height")
+	return &QSizeF{width, height}
+}
+
+func (this *parser) parseRectF(n *xmlx.Node) *QRectF {
+	x := n.F64("", "x")
+	y := n.F64("", "y")
+	width := n.F64("", "width")
+	height := n.F64("", "height")
+	return &QRectF{x, y, width, height}
+}
+
 func (this *parser) parseFont(n *xmlx.Node) *QFont {
-	return &QFont{n.I("", "pointsize")}
+	return &QFont{
+		Family: n.S("", "family"),
+		PointSize: n.I("", "pointsize"),
+		Weight: n.I("", "weight"),
+		Italic: n.B("", "bool"),
+		Bold: n.B("", "bool"),
+		Underline: n.B("", "bool"),
+		Strikeout: n.B("", "bool"),
+		AntiAliasing: n.B("", "bool"),
+		StyleStrategy: n.S("", "string"),
+		Kerning: n.B("", "bool"),
+	}
+}
+
+func (this *parser) parseGradientStop(n *xmlx.Node) *GradientStop {
+	position := n.Af64("", "position")
+	colorNodes := n.SelectNodesDirect("", "color")
+	colors := make([]*QColor, len(colorNodes))
+	for i, ch := range colorNodes {
+		colors[i] = this.parseColor(ch)
+	}
+	return &GradientStop{Position: position, Colors: colors}
+}
+
+func (this *parser) parseGradient(n *xmlx.Node) *QGrdient {
+	children := n.SelectNodesDirect("", "gradientStop")
+	stops := make([]*GradientStop, len(children))
+	for i, ch := range children {
+		stops[i] = this.parseGradientStop(ch)
+	}
+	return &QGrdient{
+		GradientStops: stops,
+		StartX: n.Af64("", "startx"),
+		StartY: n.Af64("", "starty"),
+		EndX: n.Af64("", "endx"),
+		EndY: n.Af64("", "endy"),
+		CentralX: n.Af64("", "centralx"),
+		CentralY: n.Af64("", "centraly"),
+		FocalX: n.Af64("", "focalx"),
+		FocalY: n.Af64("", "focaly"),
+		Radius: n.Af64("", "radius"),
+		Angle: n.Af64("", "angle"),
+		Type: n.S("", "type"),
+		Spread: n.S("", "spread"),
+		CoordinateMode: n.S("", "coordinatemode"),
+	}
+}
+
+func (this *parser) parseLocale(n *xmlx.Node) *QLocale {
+	return &QLocale{n.As("", "language"), n.As("", "country")}
 }
 
 func (this *parser) parseEnum(n *xmlx.Node) *Enum {
@@ -53,8 +128,35 @@ func (this *parser) parseSet(n *xmlx.Node) *Set {
 	return &Set{n.GetValue()}
 }
 
+func (this *parser) parseChar(n *xmlx.Node) *Char {
+	return &Char{n.I("", "unicode")}
+}
+
+func (this *parser) parseUrl(n *xmlx.Node) *Url {
+	return &Url{n.S("", "string")}
+}
+
 func (this *parser) parseDate(n *xmlx.Node) *Date {
 	return &Date{Year: n.I("", "year"), Month: n.I("", "month"), Day: n.I("", "day")}
+}
+
+func (this *parser) parseTime(n *xmlx.Node) *Time {
+	return &Time{Hour: n.I("", "hour"), Minute: n.I("", "minute"), Second: n.I("", "second")}
+}
+
+func (this *parser) parseDateTime(n *xmlx.Node) *DateTime {
+	return &DateTime{Year: n.I("", "year"), Month: n.I("", "month"), Day: n.I("", "day"),
+		Hour: n.I("", "hour"), Minute: n.I("", "minute"), Second: n.I("", "second")}
+}
+
+func (this *parser) parseStringList(n *xmlx.Node) *StringList {
+	children := n.SelectNodesDirect("", "string")
+	strings := make([]string, len(children))
+	for i, ch := range children {
+		strings[i] = ch.S("", "string")
+	}
+
+	return &StringList{Strings: strings}
 }
 
 func (this *parser) parseColor(n *xmlx.Node) *QColor {
@@ -82,7 +184,28 @@ func (this *parser) parseColorRole(n *xmlx.Node) *QColorRole {
 	}
 }
 
+func (this *parser) parseColorGroup(nodes []*xmlx.Node) *ColorGroup {
+	items := make([]*ColorGroupItem, len(nodes))
+	for i, n := range nodes {
+		if n.Name.Local == "color" {
+			items[i] = &ColorGroupItem{
+				IsColor: true,
+				Color: this.parseColor(n),
+			}
+		} else if n.Name.Local == "colorrole" {
+			items[i] = &ColorGroupItem{
+				IsColor: false,
+				ColorRole: this.parseColorRole(n),
+			}
+		} else {
+			log.Fatalf("bad color group %s", n)
+		}
+	}
+	return &ColorGroup{Items: items}
+}
+
 func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
+	fmt.Println(n)
 	ret := &QPalette{}
 
 	childCount := len(this.elementChildren(n))
@@ -90,20 +213,14 @@ func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
 		log.Fatalf("Bad palette with %d children", childCount)
 	}
 
-	activeNodes := n.SelectNodes("", "active")
-	for _, ch := range activeNodes {
-		ret.Active = append(ret.Active, this.parseColorRole(ch))
-	}
+	activeNode := n.SelectNode("", "active")
+	ret.Active = this.parseColorGroup(this.elementChildren(activeNode))
 
-	inActiveNodes := n.SelectNodes("", "inactive")
-	for _, ch := range inActiveNodes {
-		ret.InActive = append(ret.InActive, this.parseColorRole(ch))
-	}
+	inActiveNode := n.SelectNode("", "inactive")
+	ret.InActive = this.parseColorGroup(this.elementChildren(inActiveNode))
 
-	disabledNodes := n.SelectNodes("", "disabled")
-	for _, ch := range disabledNodes {
-		ret.Disabled = append(ret.Disabled, this.parseColorRole(ch))
-	}
+	disabledNode := n.SelectNode("", "disabled")
+	ret.Disabled = this.parseColorGroup(this.elementChildren(disabledNode))
 
 	return ret
 }
@@ -153,6 +270,10 @@ func (this *parser) elementChildren(n *xmlx.Node) []*xmlx.Node {
 func (this *parser) parseLayoutItem(n *xmlx.Node) *QLayoutItem {
 	row := n.Ai("", "row")
 	column := n.Ai("", "column")
+	rowSpan := n.Ai("", "rowspan")
+	colSpan := n.Ai("", "colspan")
+	alignment := n.S("", "alignment")
+
 	children := this.elementChildren(n)
 	if len(children) != 1 {
 		for _, ch := range (children) {
@@ -175,7 +296,14 @@ func (this *parser) parseLayoutItem(n *xmlx.Node) *QLayoutItem {
 	default:
 		log.Fatalf("Bad layout item child type %s", child.Name.Local)
 	}
-	return &QLayoutItem{Row: row, Column: column, View: view}
+	return &QLayoutItem{
+		Row: row,
+		Column: column,
+		Rowspan: rowSpan,
+		Colspan: colSpan,
+		Alignment: alignment,
+		View: view,
+	}
 }
 
 func (this *parser) parseSpacer(n *xmlx.Node) *QSpacer {
@@ -194,12 +322,38 @@ func (this *parser) parseSpacer(n *xmlx.Node) *QSpacer {
 	return &QSpacer{Name: name, Properties: properties}
 }
 
+func (this *parser) parseRow(n *xmlx.Node) *Row {
+	children := n.SelectNodesDirect("", "property")
+	props := make([]*Property, len(children))
+	for i, ch := range children {
+		props[i] = this.parseProperty(ch)
+	}
+	return &Row{Props: props}
+}
+
+func (this *parser) parseColumn(n *xmlx.Node) *Column {
+	children := n.SelectNodesDirect("", "property")
+	props := make([]*Property, len(children))
+	for i, ch := range children {
+		props[i] = this.parseProperty(ch)
+	}
+	return &Column{Props: props}
+}
+
 func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 	name := n.As("", "name")
 	class := n.As("", "class")
 	stretch := n.As("", "stretch")
+	rowStretch := n.As("", "rowstretch")
+	columnStretch := n.As("", "columnstretch")
+	rowMinimumHeight := n.As("", "rowminimumheight")
+	columnMinimumWidth := n.As("", "columnminimumwidth")
+
+
 	properties := []*Property{}
 	items := []*QLayoutItem{}
+	attributes := []*Property{}
+
 	children := this.elementChildren(n)
 
 	for _, ch := range children {
@@ -208,6 +362,8 @@ func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 			properties = append(properties, this.parseProperty(ch))
 		case "item":
 			items = append(items, this.parseLayoutItem(ch))
+		case "attribute":
+			attributes = append(attributes, this.parseProperty(ch))
 		default:
 			fmt.Println(n)
 			fmt.Println(ch)
@@ -215,22 +371,117 @@ func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 		}
 	}
 
-	return &QLayout{Class: class, Name: name, Stretch: stretch, Properties: properties, Items: items}
+	return &QLayout{
+		Class: class,
+		Name: name,
+		Stretch: stretch,
+		RowStretch: rowStretch,
+		ColumnStretch: columnStretch,
+		RowMinimumHeight: rowMinimumHeight,
+		ColumnMinimumWidth: columnMinimumWidth,
+		Properties: properties,
+		Items: items,
+		Attributes: attributes,
+	}
 }
 
 func (this *parser) parseWidgetItem(n *xmlx.Node) *QWidgetItem {
-	ch := n.SelectNode("", "property")
-	return &QWidgetItem{Prop: this.parseProperty(ch)}
+	propNodes := n.SelectNodesDirect("", "property")
+	props := make([]*Property, len(propNodes))
+	for i, ch := range propNodes {
+		props[i] = this.parseProperty(ch)
+	}
+
+	itemNodes := n.SelectNodesDirect("", "item")
+	fmt.Println(n, len(itemNodes))
+	items := make([]*QWidgetItem, len(itemNodes))
+	for i, ch := range itemNodes {
+		items[i] = this.parseWidgetItem(ch)
+	}
+
+	return &QWidgetItem{
+		Props: props,
+		Items: items,
+		Row: n.Ai("", "row"),
+		Column: n.Ai("", "column"),
+	}
+}
+
+func (this *parser) parseAction(n *xmlx.Node) *Action {
+	propNodes := n.SelectNodesDirect("", "property")
+	props := make([]*Property, len(propNodes))
+	for i, ch := range propNodes {
+		props[i] = this.parseProperty(ch)
+	}
+
+	attrNodes := n.SelectNodesDirect("", "attribute")
+	attrs := make([]*Property, len(attrNodes))
+	for i, ch := range attrNodes {
+		attrs[i] = this.parseProperty(ch)
+	}
+
+	return &Action{
+		Props: props,
+		Attributes: attrs,
+		Name: n.As("", "name"),
+		Menu: n.As("", "menu"),
+	}
+}
+
+func (this *parser) parseActionGroup(n *xmlx.Node) *ActionGroup {
+	propNodes := n.SelectNodesDirect("", "property")
+	props := make([]*Property, len(propNodes))
+	for i, ch := range propNodes {
+		props[i] = this.parseProperty(ch)
+	}
+
+	attrNodes := n.SelectNodesDirect("", "attribute")
+	attrs := make([]*Property, len(attrNodes))
+	for i, ch := range attrNodes {
+		attrs[i] = this.parseProperty(ch)
+	}
+
+	actionNodes := n.SelectNodesDirect("", "action")
+	actions := make([]*Action, len(actionNodes))
+	for i, ch := range actionNodes {
+		actions[i] = this.parseAction(ch)
+	}
+
+	actionGroupNodes := n.SelectNodesDirect("", "actiongroup")
+	actionGroups := make([]*ActionGroup, len(actionGroupNodes))
+	for i, ch := range actionGroupNodes {
+		actionGroups[i] = this.parseActionGroup(ch)
+	}
+	return &ActionGroup{
+		Props: props,
+		Attributes: attrs,
+		Actions: actions,
+		ActionGroups: actionGroups,
+
+		Name: n.As("", "name"),
+	}
+}
+
+func (this *parser) parseActionRef(n *xmlx.Node) *ActionRef {
+	return &ActionRef{Name: n.As("", "name")}
 }
 
 func (this *parser) parseWidget(n *xmlx.Node) *QWidget {
 	name := n.As("", "name")
 	class := n.As("", "class")
+
 	properties := []*Property{}
-	widgets := []*QWidget{}
-	var layout *QLayout
-	items := []*QWidgetItem{}
 	attributes := []*Attribute{}
+
+	rows := []*Row{}
+	columns := []*Column{}
+	items := []*QWidgetItem{}
+
+	var layout *QLayout
+	widgets := []*QWidget{}
+	actions := []*Action{}
+	actionGroups := []*ActionGroup{}
+	addActions := []*ActionRef{}
 	zorders := []string{}
 
 	children := this.elementChildren(n)
@@ -238,19 +489,30 @@ func (this *parser) parseWidget(n *xmlx.Node) *QWidget {
 		switch ch.Name.Local {
 		case "property":
 			properties = append(properties, this.parseProperty(ch))
-		case "widget":
-			widgets = append(widgets, this.parseWidget(ch))
-		case "layout":
-			layout = this.parseLayout(ch)
-		case "item":
-			items = append(items, this.parseWidgetItem(ch))
 		case "attribute":
 			attributes = append(attributes, this.parseAttribute(ch))
+
+		case "row":
+			rows = append(rows, this.parseRow(ch))
+		case "column":
+			columns = append(columns, this.parseColumn(ch))
+		case "item":
+			fmt.Println(ch)
+			items = append(items, this.parseWidgetItem(ch))
+
+		case "layout":
+			layout = this.parseLayout(ch)
+		case "widget":
+			widgets = append(widgets, this.parseWidget(ch))
+		case "action":
+			actions = append(actions, this.parseAction(ch))
+		case "actiongroup":
+			actionGroups = append(actionGroups, this.parseActionGroup(ch))
+		case "addaction":
+			addActions = append(addActions, this.parseActionRef(ch))
 		case "zorder":
 			zorders = append(zorders, ch.GetValue())
 		default:
-			fmt.Println(n)
-			fmt.Println(ch)
 			log.Fatalf("Bad child type %s of layout, parent name: %s", ch.Name.Local, name)
 		}
 	}
@@ -265,8 +527,23 @@ func (this *parser) parseWidget(n *xmlx.Node) *QWidget {
 		}
 	}
 
-	return &QWidget{Class: class, Name: name, Properties: properties, Attributes: attributes,
-		Children: widgets, Layout: layout, ZOrders: zorders}
+	return &QWidget{
+		Class: class,
+		Name: name,
+		Properties: properties,
+		Attributes: attributes,
+
+		Rows: rows,
+		Columns: columns,
+		Items: items,
+
+		Widgets: widgets,
+		Layout: layout,
+		Actions: actions,
+		ActionsGroups: actionGroups,
+		AddActions: addActions,
+		ZOrders: zorders,
+	}
 }
 
 func (this *parser) parseProperty(n *xmlx.Node) *Property {
@@ -279,34 +556,74 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	var value interface{}
 	child := children[0]
 	switch child.Name.Local {
-	case "number":
-		value = n.I("", "number")
-	case "double":
-		value = n.F64("", "double")
-	case "string":
-		value = n.S("", "string")
 	case "bool":
 		value = n.B("", "bool")
+	case "color":
+		value = this.parseColor(child)
+	case "cstring":
+		value = n.S("", "cstring")
+	case "cursor":
+		value = n.I("", "cursor")
+	case "cursorshape":
+		value = n.S("", "cursorshape")
 	case "enum":
 		value = this.parseEnum(child)
-	case "set":
-		value = this.parseSet(child)
-	case "size":
-		value = this.parseSize(child)
-	case "rect":
-		value = this.parseRect(child)
 	case "font":
 		value = this.parseFont(child)
-	case "sizepolicy":
-		value = this.parseSizePolicy(child)
-	case "date":
-		value = this.parseDate(child)
+	case "iconset":
+		log.Fatalf("iconset not support now. %s", child)
+	case "pixmap":
+		log.Fatalf("pixmap not support now. %s", child)
 	case "palette":
 		value = this.parsePalette(child)
+	case "point":
+		value = this.parsePoint(child)
+	case "rect":
+		value = this.parseRect(child)
+	case "set":
+		value = this.parseSet(child)
+	case "locale":
+		value = this.parseLocale(child)
+	case "sizepolicy":
+		value = this.parseSizePolicy(child)
+	case "size":
+		value = this.parseSize(child)
+	case "string":
+		value = n.S("", "string")
+	case "stringlist":
+		value = this.parseStringList(child)
+	case "number":
+		value = n.I("", "number")
+	case "float":
+		value = n.F32("", "double")
+	case "double":
+		value = n.F64("", "double")
+	case "date":
+		value = this.parseDate(child)
+	case "time":
+		value = this.parseTime(child)
+	case "datetime":
+		value = this.parseDateTime(child)
+	case "pointf":
+		value = this.parsePointF(child)
+	case "rectf":
+		value = this.parseRectF(child)
+	case "sizef":
+		value = this.parseSizeF(child)
+	case "longlong":
+		value = n.I64("", "longlong")
+	case "char":
+		value = this.parseChar(child)
+	case "url":
+		value = this.parseUrl(child)
+	case "ulonglong":
+		value = n.U64("", "ulonglong")
+	case "brush":
+		value = this.parseBrush(child)
 	default:
 		log.Fatalf("Bad property type %s of %v", child.Name.Local, child)
 	}
-	return &Property{Name: name, Value: value}
+	return &Property{Name: name, Value: value, StdSet: n.Ab("", "stdset")}
 }
 
 func (this *parser) Parse() error {
@@ -319,7 +636,7 @@ func (this *parser) Parse() error {
 	// Parse tabstops
 	tabStopsRoot := rootNode.SelectNode("", "tabstops")
 	if tabStopsRoot != nil {
-		for _, ch := range tabStopsRoot.SelectNodes("", "tabstop") {
+		for _, ch := range tabStopsRoot.SelectNodesDirect("", "tabstop") {
 			this.tabStops = append(this.tabStops, ch.GetValue())
 		}
 	}
@@ -327,7 +644,7 @@ func (this *parser) Parse() error {
 	// Parse button groups
 	buttonGroupsRoot := rootNode.SelectNode("", "buttongroups")
 	if buttonGroupsRoot != nil {
-		for _, ch := range buttonGroupsRoot.SelectNodes("", "buttongroup") {
+		for _, ch := range buttonGroupsRoot.SelectNodesDirect("", "buttongroup") {
 			this.buttonGroups = append(this.buttonGroups, ch.As("", "name"))
 		}
 	}
