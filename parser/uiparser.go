@@ -14,6 +14,7 @@ type parser struct {
 
 	buttonGroups []string
 	tabStops []string
+	layoutDefault *LayoutDefault
 
 	widget *QWidget
 }
@@ -633,6 +634,11 @@ func (this *parser) Parse() error {
 
 	widgetRoot := rootNode.SelectNode("", "widget")
 	this.widget = this.parseWidget(widgetRoot)
+
+	layoutDefault := rootNode.SelectNode("", "layoutDefault")
+	if layoutDefault != nil {
+		this.layoutDefault = &LayoutDefault{Margin: layoutDefault.Ai("", "margin"), Spacing: layoutDefault.Ai("", "spacing")}
+	}
 
 	// Parse tabstops
 	tabStopsRoot := rootNode.SelectNode("", "tabstops")
