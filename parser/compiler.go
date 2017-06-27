@@ -16,6 +16,7 @@ type compiler struct {
 	FontDefined bool
 	SizePolicyDefined bool
 	PaletteDefined bool
+	BrushDefined bool
 
 	VariableCodes []string
 	SetupUICodes []string
@@ -77,6 +78,38 @@ func (this *compiler) enumToString(enum string) string {
 	return fmt.Sprintf("core.%s", strings.Replace(enum, ":", "_", -1))
 }
 
+func (this *compiler) defineFont() {
+	if !this.FontDefined {
+		this.addImport("gui")
+		this.addSetupUICode("var font *gui.QFont")
+		this.FontDefined = true
+	}
+}
+
+func (this *compiler) definePalette() {
+	if !this.PaletteDefined {
+		this.addImport("gui")
+		this.addSetupUICode("var palette *gui.QPalette")
+		this.PaletteDefined = true
+	}
+}
+
+func (this *compiler) defineBrush() {
+	if !this.BrushDefined {
+		this.addImport("gui")
+		this.addSetupUICode("var brush *gui.QBrush")
+		this.BrushDefined = true
+	}
+}
+
+func (this *compiler) defineSizePolicy() {
+	if !this.SizePolicyDefined {
+		this.addImport("widgets")
+		this.addSetupUICode("var sizePolicy *widgets.QSizePolicy")
+		this.SizePolicyDefined = true
+	}
+}
+
 func (this *compiler) setProperties(name string, props []*Property) {
 	for _, prop := range props {
 		var valueStr string
@@ -99,16 +132,17 @@ func (this *compiler) setProperties(name string, props []*Property) {
 		case *Cursor:
 			// TODO:
 		case *CursorShape:
-			// TODO:
+			cursorShape, _ := prop.Value.(*CursorShape)
+			this.addImport("core")
+			this.addImport("gui")
+			valueStr = fmt.Sprintf("core.NewQCursor2(core.Qt__%s)", cursorShape.Value)
+			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
 		case *Enum:
 			enum, _ := prop.Value.(*Enum)
 			valueStr = this.enumToString(enum.Value)
 			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
 		case *QFont:
-			if !this.FontDefined {
-				this.addImport("gui")
-				this.addSetupUICode("var font *gui.QFont")
-			}
+			this.defineFont()
 			this.addSetupUICode("font = gui.NewQFont()")
 			font := prop.Value.(*QFont)
 			if font.Family != "" {
@@ -120,14 +154,55 @@ func (this *compiler) setProperties(name string, props []*Property) {
 			if font.Weight != 0 {
 				this.addSetupUICode(fmt.Sprintf("font.SetWeight(%d)", font.Weight))
 			}
-			this.addSetupUICode(fmt.Sprintf("font.SetItalic(%s)", boolToString(font.Italic)))
-			this.addSetupUICode(fmt.Sprintf("font.SetBold(%s)", boolToString(font.Bold)))
-			this.addSetupUICode(fmt.Sprintf("font.SetUnderline(%s)", boolToString(font.Underline)))
-			this.addSetupUICode(fmt.Sprintf("font.SetStrikeout(%s)", boolToString(font.Strikeout)))
-			this.addSetupUICode(fmt.Sprintf("font.SetKerning(%s)", boolToString(font.Kerning)))
-			this.addSetupUICode(fmt.Sprintf("font.SetStyleStrategy(gui.%s)", strings.Replace(font.StyleStrategy, ":", "_", -1)))
+			if font.Italic {
+				this.addSetupUICode(fmt.Sprintf("font.SetItalic(true)"))
+			}
+			if font.Bold {
+				this.addSetupUICode(fmt.Sprintf("font.SetBold(true)"))
+			}
+			if font.Underline {
+				this.addSetupUICode(fmt.Sprintf("font.SetUnderline(true)"))
+			}
+			if font.Strikeout {
+				this.addSetupUICode(fmt.Sprintf("font.SetStrikeout(true)"))
+			}
+			if font.Kerning {
+				this.addSetupUICode(fmt.Sprintf("font.SetKerning(true)"))
+			}
+			if font.StyleStrategy != "" {
+				this.addSetupUICode(fmt.Sprintf("font.SetStyleStrategy(gui.%s)", strings.Replace(font.StyleStrategy, ":", "_", -1)))
+			}
 		case *QPalette:
-			// TODO:
+			palette := prop.Value.(*QPalette)
+			this.definePalette()
+			this.defineBrush()
+			this.addImport("core")
+			this.addImport("gui")
+			setPalette := func (groupName string, colorGroup *ColorGroup) {
+				for _, item := range colorGroup.Items {
+					if item.IsColor {
+						log.Error("Color role required for palette")
+						continue
+					}
+
+					colorRole := item.ColorRole
+					brush := colorRole.Brush
+					this.addSetupUICode(fmt.Sprintf("brush = gui.NewBrush3(gui.NewColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
+						brush.Color.Green,
+						brush.Color.Blue,
+						brush.Color.Alpha,
+						brush.BrushStyle))
+					this.addSetupUICode(fmt.Sprintf("palette.SetBrush2(gui.QPalette__%s, gui.QPalette__%s, brush)", groupName, colorRole.Role))
+				}
+			}
+			if palette.Active != nil {
+				setPalette("Active", palette.Active)
+			} else if palette.InActive != nil {
+				setPalette("Inactive", palette.InActive)
+			} else if palette.Disabled != nil {
+				setPalette("Disabled", palette.Disabled)
+			}
+
 		case *QPoint:
 			point := prop.Value.(*QPoint)
 			this.addImport("core")
@@ -150,14 +225,11 @@ func (this *compiler) setProperties(name string, props []*Property) {
 		case *QLocale:
 			locale := prop.Value.(*QLocale)
 			this.addImport("core")
-			valueStr = fmt.Sprintf("core.NewQLocale2(%s, %s)", locale.Language, locale.Country)
+			valueStr = fmt.Sprintf("core.NewQLocale2(core.QLocale__%s, core.QLocale__%s)", locale.Language, locale.Country)
 			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
 		case *QSizePolicy:
 			sizePolicy := prop.Value.(*QSizePolicy)
-			this.addImport("widgets")
-			if !this.SizePolicyDefined {
-				this.addSetupUICode("var sizePolicy *widgets.QSizePolicy")
-			}
+			this.defineSizePolicy()
 			this.addSetupUICode(fmt.Sprintf("sizePolicy = widgets.NewQSizePolicy2(widgets.QSizePolicy__%s, widgets.QSizePolicy__%s)",
 				sizePolicy.HSizeType, sizePolicy.VSizeType))
 			this.addSetupUICode(fmt.Sprintf("sizePolicy.SetHorizontalStretch(%d)", sizePolicy.HorStretch))
@@ -230,7 +302,22 @@ func (this *compiler) setProperties(name string, props []*Property) {
 			valueStr = fmt.Sprintf("%d", prop.Value)
 			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
 		case *QBrush:
-			//TODO:
+			brush := prop.Value.(*QBrush)
+			if brush.Color != nil {
+				this.defineBrush()
+				this.addImport("core")
+				this.addSetupUICode(fmt.Sprintf("brush = gui.NewBrush3(gui.NewColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
+					brush.Color.Green,
+					brush.Color.Blue,
+					brush.Color.Alpha,
+					brush.BrushStyle))
+				this.addSetupUICode(fmt.Sprintf("%s.Set%s(brush)", name, this.toCamelCase(prop.Name)))
+			} else if brush.Gradient != nil {
+				//TODO:
+
+			} else if brush.Texture != nil {
+				//TODO:
+			}
 		}
 	}
 }
