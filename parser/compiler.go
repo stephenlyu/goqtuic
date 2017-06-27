@@ -664,6 +664,9 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 		}
 	}
 
+	this.defineSortingEnabled()
+	this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
+
 	for _, item := range widget.Items {
 		this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
 		this.addSetupUICode(fmt.Sprintf("this.%s.SetItem(%d, %d, tableItem)", widgetName, item.Row, item.Column))
@@ -677,6 +680,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			this.addTranslateCode(fmt.Sprintf("this.%s.item(%d, %d).SetText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, item.Row, item.Column, this.RootWidgetName, value.Value))
 		}
 	}
+	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
 
 	// Translate attributes
 
