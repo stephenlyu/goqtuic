@@ -22,7 +22,6 @@ type compiler struct {
 	BrushDefined bool
 	ListItemDefined bool
 	TableItemDefined bool
-	TreeItemDefined bool
 
 	SortingEnabledDefined bool
 
@@ -33,6 +32,7 @@ type compiler struct {
 	SetCurrentIndexCodes []string
 
 	DefinedButtonGroups map[string]bool
+	DefinedTreeItems map[string]bool
 }
 
 func iifs(cond bool, a, b string) string {
@@ -53,7 +53,12 @@ func NewCompiler(uiFile string) (error, *compiler) {
 		return err, nil
 	}
 
-	return nil, &compiler{parser: parser, Imports: make(map[string]bool), DefinedButtonGroups: make(map[string]bool)}
+	return nil, &compiler{
+		parser: parser,
+		Imports: make(map[string]bool),
+		DefinedButtonGroups: make(map[string]bool),
+		DefinedTreeItems: make(map[string]bool),
+	}
 }
 
 func (this *compiler) addVariableCode(line string) {
@@ -163,12 +168,30 @@ func (this *compiler) defineButtonGroup(buttonGroupName string) string {
 	return varName
 }
 
-func (this *compiler) defineTreeItem() {
-	if !this.TreeItemDefined {
-		this.addImport("widgets")
-		this.addSetupUICode("var treeItem *widgets.QTreeWidgetItem")
-		this.TableItemDefined = true
+func (this *compiler) defineTreeItem() string {
+	for k, v := range this.DefinedTreeItems {
+		if !v {
+			this.DefinedTreeItems[k] = true
+			return k
+		}
 	}
+
+	this.addImport("widgets")
+	varName := fmt.Sprintf("treeItem%d", len(this.DefinedTreeItems) + 1)
+	this.addSetupUICode(fmt.Sprintf("var %s *widgets.QTreeWidgetItem", varName))
+	this.DefinedTreeItems[varName] = true
+	return varName
+}
+
+func (this *compiler) undefineTreeItem(varName string) {
+	v, ok := this.DefinedTreeItems[varName]
+	if !ok {
+		log.Fatalf("undefined tree item var %s", varName)
+	}
+	if !v {
+		log.Fatalf("unused tree item var %s", varName)
+	}
+	this.DefinedTreeItems[varName] = false
 }
 
 func (this *compiler) defineSortingEnabled() {
@@ -178,13 +201,17 @@ func (this *compiler) defineSortingEnabled() {
 	}
 }
 
-func (this *compiler) setProperty(name string, prop *Property) {
+func (this *compiler) setProperty(name string, prop *Property){
+	this.setPropertyEx(name, "", prop)
+}
+
+func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Property) {
 	var valueStr string
 	switch prop.Value.(type) {
 	case bool:
 		v, _ := prop.Value.(bool)
 		valueStr = boolToString(v)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QColor:
 		color := prop.Value.(*QColor)
 		this.addImport("gui")
@@ -193,7 +220,7 @@ func (this *compiler) setProperty(name string, prop *Property) {
 			color.Green,
 			color.Blue,
 			color.Alpha)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case string:
 		log.Errorf("cstring property %s not supported", prop.Name)
 	case *Cursor:
@@ -203,11 +230,11 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		this.addImport("core")
 		this.addImport("gui")
 		valueStr = fmt.Sprintf("core.NewQCursor2(core.Qt__%s)", cursorShape.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Enum:
 		enum, _ := prop.Value.(*Enum)
 		valueStr = this.enumToString(enum.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s, %s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QFont:
 		this.defineFont()
 		this.addSetupUICode("font = gui.NewQFont()")
@@ -239,7 +266,7 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		if font.StyleStrategy != "" {
 			this.addSetupUICode(fmt.Sprintf("font.SetStyleStrategy(gui.%s)", strings.Replace(font.StyleStrategy, ":", "_", -1)))
 		}
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(font)", name, this.toCamelCase(prop.Name)))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%sfont)", name, this.toCamelCase(prop.Name), paramPrefix))
 
 	case *QPalette:
 		palette := prop.Value.(*QPalette)
@@ -275,17 +302,18 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		if palette.Disabled != nil {
 			setPalette("Disabled", palette.Disabled)
 		}
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%spalette)", name, this.toCamelCase(prop.Name), paramPrefix))
 
 	case *QPoint:
 		point := prop.Value.(*QPoint)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewPoint2(%d, %d)", point.X, point.Y)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QRect:
 		rect := prop.Value.(*QRect)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewRect4(%d, %d, %d, %d)", rect.X, rect.Y, rect.Width, rect.Height)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Set:
 		set := prop.Value.(*Set)
 		enums := strings.Split(set.Value, "|")
@@ -294,12 +322,12 @@ func (this *compiler) setProperty(name string, prop *Property) {
 			enumStrings[i] = this.enumToString(enum)
 		}
 		valueStr = strings.Join(enumStrings, " | ")
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QLocale:
 		locale := prop.Value.(*QLocale)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewQLocale2(core.QLocale__%s, core.QLocale__%s)", locale.Language, locale.Country)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QSizePolicy:
 		sizePolicy := prop.Value.(*QSizePolicy)
 		this.defineSizePolicy()
@@ -308,72 +336,72 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		this.addSetupUICode(fmt.Sprintf("sizePolicy.SetHorizontalStretch(%d)", sizePolicy.HorStretch))
 		this.addSetupUICode(fmt.Sprintf("sizePolicy.SetVerticalStretch(%d)", sizePolicy.VerStretch))
 		this.addSetupUICode(fmt.Sprintf("sizePolicy.SetHeightForWidth(%s.SizePolicy().HasHeightForWidth())", name))
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(sizePolicy)", name, this.toCamelCase(prop.Name)))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%ssizePolicy)", name, this.toCamelCase(prop.Name), paramPrefix))
 	case *QSize:
 		size := prop.Value.(*QSize)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewQSize2(%d, %d)", size.Width, size.Height)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *String:
 		str := prop.Value.(*String)
 		if !str.NotR {
 			this.addTranslateCode(fmt.Sprintf("%s.Set%s(_translate(\"%s\", \"%s\", \"\", -1)", name, this.toCamelCase(prop.Name), this.RootWidgetName, str.Value))
 		} else {
-			this.addSetupUICode(fmt.Sprintf("%s.Set%s(\"%s\")", name, this.toCamelCase(prop.Name), str.Value))
+			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s\"%s\")", name, this.toCamelCase(prop.Name), paramPrefix, str.Value))
 		}
 	case *StringList:
 		log.Errorf("string list prop %s not supported", prop.Name)
 	case int:
 		valueStr = fmt.Sprintf("%d", prop.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case float32:
 		valueStr = fmt.Sprintf("%f", prop.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case float64:
 		valueStr = fmt.Sprintf("%f", prop.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Date:
 		date := prop.Value.(*Date)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewQDate3(%d, %d, %d)", date.Year, date.Month, date.Day)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Time:
 		time := prop.Value.(*Time)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewQTime3(%d, %d, %d, 0)", time.Hour, time.Minute, time.Second)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *DateTime:
 		datetime := prop.Value.(*DateTime)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewDateTime3(core.NewQDate3(%d, %d, %d), core.NewTime3(%d, %d, %d, 0), core.Qt__LocalTime)",
 			datetime.Year, datetime.Month, datetime.Day,
 			datetime.Hour, datetime.Minute, datetime.Second)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QPointF:
 		point := prop.Value.(*QPointF)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewPoint2(%d, %d)", point.X, point.Y)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QRectF:
 		rect := prop.Value.(*QRectF)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewRect4(%f, %f, %f, %f)", rect.X, rect.Y, rect.Width, rect.Height)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QSizeF:
 		size := prop.Value.(*QSizeF)
 		this.addImport("core")
 		valueStr = fmt.Sprintf("core.NewQSize2(%d, %d)", size.Width, size.Height)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case int64:
 		valueStr = fmt.Sprintf("%d", prop.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Char:
 		log.Errorf("char prop %s not supported", prop.Name)
 	case *Url:
 		log.Errorf("url prop %s not supported", prop.Name)
 	case uint64:
 		valueStr = fmt.Sprintf("%d", prop.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s)", name, this.toCamelCase(prop.Name), valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QBrush:
 		brush := prop.Value.(*QBrush)
 		if brush.Color != nil {
@@ -384,7 +412,7 @@ func (this *compiler) setProperty(name string, prop *Property) {
 				brush.Color.Blue,
 				brush.Color.Alpha,
 				brush.BrushStyle))
-			this.addSetupUICode(fmt.Sprintf("%s.Set%s(brush)", name, this.toCamelCase(prop.Name)))
+			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%sbrush)", name, this.toCamelCase(prop.Name), paramPrefix))
 		} else if brush.Gradient != nil {
 			//TODO:
 
@@ -742,8 +770,100 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 	}
 }
 
+func (this *compiler) translateTreeItemProps(callObject string, varName string, item *QWidgetItem) {
+	column := -1
+	for _, prop := range item.Props {
+		switch prop.Name {
+		case "text":
+			column++
+			value := prop.Value.(*String)
+			if value.Value != "" {
+				this.addTranslateCode(fmt.Sprintf("%s.SetText(%d, _translate(\"%s\", \"%s\", \"\", -1)", callObject, column, this.RootWidgetName, value.Value))
+			}
+			continue
+		}
+
+		this.setPropertyEx(varName, fmt.Sprintf("%d, ", column), prop)
+	}
+}
+
+func (this *compiler) translateTreeWidgetItem(callObject string, parentName string, item *QWidgetItem) {
+	fmt.Println(len(item.Items))
+	if item.Items == nil || len(item.Items) == 0 {
+		return
+	}
+	for i, childItem := range item.Items {
+		varName := this.defineTreeItem()
+
+		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(%s, 0)", varName, parentName))
+		childCallObject := fmt.Sprintf("%s.child(%d)", callObject, i)
+		this.translateTreeItemProps(childCallObject, varName, childItem)
+		this.translateTreeWidgetItem(childCallObject, varName, childItem)
+
+		this.undefineTreeItem(varName)
+	}
+}
+
 func (this *compiler) translateTreeWidget(widget *QWidget) {
-	// TODO:
+	widgetName := this.transVarName(widget.Name)
+
+	this.defineSortingEnabled()
+	this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
+
+	if widget.Columns != nil && len(widget.Columns) > 0 {
+		varName := this.defineTreeItem()
+		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(this.%s, 0)", varName, widgetName))
+		this.addSetupUICode(fmt.Sprintf("this.%s.SetHeaderItem(%s)", widgetName, varName))
+		for i, column := range widget.Columns {
+			for _, prop := range column.Props {
+				if prop.Name != "text" {
+					log.Errorf("unknown tree widget header item property %s", prop.Name)
+					continue
+				}
+				value, _ := prop.Value.(*String)
+
+				this.addTranslateCode(fmt.Sprintf("this.%s.HeaderItem().SetText(%d, _translate(\"%s\", \"%s\", \"\", -1)", widgetName, i, this.RootWidgetName, value.Value))
+			}
+		}
+		this.undefineTreeItem(varName)
+	}
+	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
+
+	if widget.Items != nil && len(widget.Items) > 0 {
+		for i, item := range widget.Items {
+			varName := this.defineTreeItem()
+
+			this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(this.%s, 0)", varName, widgetName))
+			callObject := fmt.Sprintf("this.%s.TopLevelItem(%d)", widgetName, i)
+			this.translateTreeItemProps(callObject, varName, item)
+			this.translateTreeWidgetItem(callObject, varName, item)
+
+			this.undefineTreeItem(varName)
+		}
+	}
+
+	// Translate attributes
+
+	for _, attr := range widget.Attributes {
+		var propName string
+		if strings.HasSuffix(attr.Name, "ShowSortIndicator") {
+			propName = "SortIndicatorShown"
+		} else {
+			propName = attr.Name[len("Header"):]
+		}
+		switch attr.Value.(type) {
+		case string:
+			log.Errorf("string attribute not support by tree widget ")
+		case int:
+			value := attr.Value.(int)
+			this.addSetupUICode(fmt.Sprintf("this.%s.header().set%s(%d)", widgetName, propName, value))
+		case float64:
+			log.Errorf("double attribute not support by table widget ")
+		case bool:
+			value := attr.Value.(bool)
+			this.addSetupUICode(fmt.Sprintf("this.%s.header().set%s(%s)", widgetName, propName, boolToString(value)))
+		}
+	}
 }
 
 func (this *compiler) translateWidget(parentName string, widget *QWidget) {
