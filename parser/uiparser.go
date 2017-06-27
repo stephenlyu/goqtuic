@@ -239,7 +239,7 @@ func (this *parser) parseAttribute(n *xmlx.Node) *Attribute {
 
 	switch ch.Name.Local {
 	case "string":
-		value = n.S("", "string")
+		value = &String{Value: n.S("", "string"), NotR: ch.Ab("", "notr")}
 	case "bool":
 		value = n.B("", "bool")
 	case "number":
@@ -313,8 +313,8 @@ func (this *parser) parseLayoutItem(n *xmlx.Node) *QLayoutItem {
 
 func (this *parser) parseSpacer(n *xmlx.Node) *QSpacer {
 	name := n.As("", "name")
-	properties := make([]*Property, len(n.Children))
 	children := this.elementChildren(n)
+	properties := make([]*Property, len(children))
 
 	for i, ch := range children {
 		if ch.Name.Local != "property" {

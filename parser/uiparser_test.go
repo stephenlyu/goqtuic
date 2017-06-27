@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("TestParser", func() {
 	It("test", func() {
-		err, compiler := NewCompiler("../ui/ai_comparability_dialog.ui")
+		err, compiler := NewCompiler("test.ui")
 		if err != nil {
 			panic(err)
 		}

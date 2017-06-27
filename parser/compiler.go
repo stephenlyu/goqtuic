@@ -31,6 +31,8 @@ type compiler struct {
 	TranslateCodes []string
 
 	SetCurrentIndexCodes []string
+
+	DefinedButtonGroups map[string]bool
 }
 
 func iifs(cond bool, a, b string) string {
@@ -51,7 +53,7 @@ func NewCompiler(uiFile string) (error, *compiler) {
 		return err, nil
 	}
 
-	return nil, &compiler{parser: parser, Imports: make(map[string]bool)}
+	return nil, &compiler{parser: parser, Imports: make(map[string]bool), DefinedButtonGroups: make(map[string]bool)}
 }
 
 func (this *compiler) addVariableCode(line string) {
@@ -89,11 +91,15 @@ func (this *compiler) addImport(_import string) {
 }
 
 func (this *compiler) enumToString(enum string) string {
-	if !strings.HasPrefix(enum, "Qt::") {
-		log.Errorf("unknown enum %s", enum)
+	if strings.HasPrefix(enum, "Qt::") {
+		this.addImport("core")
+		return fmt.Sprintf("core.%s", strings.Replace(enum, ":", "_", -1))
+	} else if strings.HasPrefix(enum, "QDialogButtonBox::") {
+		this.addImport("widgets")
+		return fmt.Sprintf("widgets.%s", strings.Replace(enum, ":", "_", -1))
 	}
-	this.addImport("core")
-	return fmt.Sprintf("core.%s", strings.Replace(enum, ":", "_", -1))
+	log.Errorf("unknown enum %s", enum)
+	return ""
 }
 
 func (this *compiler) defineFont() {
@@ -142,6 +148,19 @@ func (this *compiler) defineTableItem() {
 		this.addSetupUICode("var tableItem *widgets.QTableWidgetItem")
 		this.TableItemDefined = true
 	}
+}
+
+func (this *compiler) defineButtonGroup(buttonGroupName string) string {
+	varName := this.transVarName(buttonGroupName)
+	if _, ok := this.DefinedButtonGroups[varName]; ok {
+		return varName
+	}
+
+	this.addImport("widgets")
+	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.NewButtonGroup(%s)", varName, this.RootWidgetName))
+	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", varName, buttonGroupName))
+	this.DefinedButtonGroups[varName] = true
+	return varName
 }
 
 func (this *compiler) defineTreeItem() {
@@ -220,6 +239,8 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		if font.StyleStrategy != "" {
 			this.addSetupUICode(fmt.Sprintf("font.SetStyleStrategy(gui.%s)", strings.Replace(font.StyleStrategy, ":", "_", -1)))
 		}
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(font)", name, this.toCamelCase(prop.Name)))
+
 	case *QPalette:
 		palette := prop.Value.(*QPalette)
 		this.definePalette()
@@ -245,9 +266,13 @@ func (this *compiler) setProperty(name string, prop *Property) {
 		}
 		if palette.Active != nil {
 			setPalette("Active", palette.Active)
-		} else if palette.InActive != nil {
+		}
+
+		if palette.InActive != nil {
 			setPalette("Inactive", palette.InActive)
-		} else if palette.Disabled != nil {
+		}
+
+		if palette.Disabled != nil {
 			setPalette("Disabled", palette.Disabled)
 		}
 
@@ -490,7 +515,7 @@ func (this *compiler) translateLayoutItem(parentName string, parentClass string,
 	case "QFormLayout":
 		this.addImport("widgets")
 		role := iifs(item.Column == 0, "widgets.QFormLayout__LabelRole", "widgets.QFormLayout__FieldRole")
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%d, %s, this.%s)", parentName, childType, role, childName))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%d, %s, this.%s)", parentName, childType, item.Row, role, childName))
 	case "QGridLayout":
 		this.addSetupUICode(fmt.Sprintf("%s.Add%s(this.%s, %d, %d, %d, %d, 0)", parentName, childType, childName, item.Row, item.Column, item.Rowspan, item.Colspan))
 	}
@@ -556,7 +581,7 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 			for i, part := range parts {
 				stretch, _ := strconv.ParseInt(strings.TrimSpace(part), 10, 32)
 				if stretch > 0 {
-					this.addSetupUICode(fmt.Sprintf("this.%s.Set%s(%d, %d)", propName, i, stretch))
+					this.addSetupUICode(fmt.Sprintf("this.%s.Set%s(%d, %d)", layoutName, propName, i, stretch))
 				}
 			}
 		}
@@ -749,40 +774,66 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 		this.translateTreeWidget(widget)
 	default:
 		// Set Attributes
-		// TODO:
-	}
-
-	if this.widget.Layout != nil {
-		this.translateLayout("this." + widgetName, this.widget.Layout)
-	}
-
-	if this.widget.Widgets != nil {
-		for _, childWidget := range widget.Widgets {
-			this.translateWidget("this." + widgetName, childWidget)
-			this.addSetupUICode(fmt.Sprintf("%s.addWidget(this.%s)", parentName, widgetName))
+		for _, attr := range widget.Attributes {
+			switch attr.Name {
+			case "buttonGroup":
+				buttonGroupName := attr.Value.(*String)
+				varName := this.defineButtonGroup(buttonGroupName.Value)
+				this.addSetupUICode(fmt.Sprintf("this.%s.addButton(this.%s)", varName, widgetName))
+			default:
+				// TODO:
+			}
 		}
 	}
 
-	if this.widget.Actions != nil {
-		for _, action := range this.widget.Actions {
+	if widget.Layout != nil {
+		this.translateLayout("this." + widgetName, widget.Layout)
+	}
+
+	if widget.Widgets != nil {
+		for _, childWidget := range widget.Widgets {
+			this.translateWidget("this." + widgetName, childWidget)
+			childWidgetName := this.transVarName(childWidget.Name)
+			if widget.Class == "QTabWidget" {
+				this.addSetupUICode(fmt.Sprintf("this.%s.addTab(this.%s, \"\")", widgetName, childWidgetName))
+
+				for _, attr := range childWidget.Attributes {
+					if attr.Name == "title" {
+						value := attr.Value.(*String)
+						this.addTranslateCode(fmt.Sprintf("this.%s.SetTabText(this.%s.IndexOf(this.%s), _translate(\"%s\", \"%s\", \"\", -1)",
+							widgetName,
+							widgetName,
+							childWidgetName,
+							this.RootWidgetName,
+							value.Value))
+					}
+				}
+			} else {
+				this.addSetupUICode(fmt.Sprintf("this.%s.addWidget(this.%s)", widgetName, childWidgetName))
+			}
+		}
+	}
+
+	if widget.Actions != nil {
+		for _, action := range widget.Actions {
 			this.translateAction(action)
 		}
 	}
 
-	if this.widget.ActionsGroups != nil {
-		for _, actionGroup := range this.widget.ActionsGroups {
+	if widget.ActionsGroups != nil {
+		for _, actionGroup := range widget.ActionsGroups {
 			this.translateActionGroup(actionGroup)
 		}
 	}
 
-	if this.widget.AddActions != nil {
-		for _, actionRef := range this.widget.AddActions {
+	if widget.AddActions != nil {
+		for _, actionRef := range widget.AddActions {
 			this.translateActionRef(actionRef)
 		}
 	}
 
-	if this.widget.ZOrders != nil {
-		for _, zorder := range this.widget.ZOrders {
+	if widget.ZOrders != nil {
+		for _, zorder := range widget.ZOrders {
 			this.translateZOrder(zorder)
 		}
 	}
@@ -843,7 +894,7 @@ func (this *UI%s) SetupUI(%s *widgets.%s) {
 %s
 
     this.RetranslateUi(%s)
-    %s
+%s
 }
 
 func (this *UI%s) RetranslateUi(%s *widgets.%s) {
