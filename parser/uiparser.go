@@ -565,6 +565,8 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 		value = n.S("", "cstring")
 	case "cursor":
 		value = &Cursor{ Value:n.I("", "cursor")}
+	case "cursorShape":
+		fallthrough
 	case "cursorshape":
 		value = &CursorShape{Value: n.S("", "cursorshape")}
 	case "enum":
