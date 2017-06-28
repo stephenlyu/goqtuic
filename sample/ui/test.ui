@@ -922,6 +922,33 @@ p, li { white-space: pre-wrap; }
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>lineEdit</tabstop>
+  <tabstop>radioButton_2</tabstop>
+  <tabstop>comboBox</tabstop>
+  <tabstop>spinBox_2</tabstop>
+  <tabstop>commandLinkButton</tabstop>
+  <tabstop>checkBox</tabstop>
+  <tabstop>tableWidget</tabstop>
+  <tabstop>spinBox</tabstop>
+  <tabstop>fontComboBox</tabstop>
+  <tabstop>textEdit</tabstop>
+  <tabstop>plainTextEdit</tabstop>
+  <tabstop>timeEdit</tabstop>
+  <tabstop>lineEdit_2</tabstop>
+  <tabstop>dateEdit</tabstop>
+  <tabstop>dateTimeEdit</tabstop>
+  <tabstop>dial</tabstop>
+  <tabstop>graphicsView</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>pushButton</tabstop>
+  <tabstop>pushButton_2</tabstop>
+  <tabstop>radioButton</tabstop>
+  <tabstop>pushButton_3</tabstop>
+  <tabstop>listWidget</tabstop>
+  <tabstop>treeWidget</tabstop>
+ </tabstops>
  <resources>
   <include location="../main.qrc"/>
  </resources>

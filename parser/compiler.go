@@ -1202,6 +1202,24 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 	}
 }
 
+func (this *compiler) getTabStopCodes(indent string) string {
+	if len(this.tabStops) == 0 {
+		return ""
+	}
+
+	lines := make([]string, len(this.tabStops) - 1)
+
+	for i, n := range this.tabStops {
+		if i == len(this.tabStops) - 1 {
+			break
+		}
+
+		next := this.tabStops[i + 1]
+		lines[i] = fmt.Sprintf("%s%s.SetTabOrder(this.%s, this.%s)", indent, this.RootWidgetName, this.transVarName(n), this.transVarName(next))
+	}
+	return "\n" + strings.Join(lines, "\n")
+}
+
 func (this *compiler) GenerateCode(packageName string, goFile string) error {
 	className := this.getClassName()
 	widgetName := this.transVarName(this.widget.Name)
@@ -1260,7 +1278,7 @@ func (this *UI%s) SetupUI(%s *widgets.%s) {
 %s
 
     this.RetranslateUi(%s)
-%s
+%s%s
 }
 
 func (this *UI%s) RetranslateUi(%s *widgets.%s) {
@@ -1277,6 +1295,7 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 		this.getSetupUICodes(indent),
 		widgetName,
 		this.getSetCurrentIndexCodes(indent),
+		this.getTabStopCodes(indent),
 		className,
 		widgetName,
 		this.widget.Class,
