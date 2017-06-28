@@ -1065,7 +1065,8 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 		for _, childWidget := range widget.Widgets {
 			this.translateWidget("this." + widgetName, childWidget)
 			childWidgetName := this.transVarName(childWidget.Name)
-			if widget.Class == "QTabWidget" {
+			switch widget.Class {
+			case "QTabWidget":
 				this.addSetupUICode(fmt.Sprintf("this.%s.AddTab(this.%s, \"\")", widgetName, childWidgetName))
 
 				for _, attr := range childWidget.Attributes {
@@ -1079,8 +1080,12 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 							strconv.Quote(value.Value)))
 					}
 				}
-			} else {
+			case "QStackedWidget":
 				this.addSetupUICode(fmt.Sprintf("this.%s.AddWidget(this.%s)", widgetName, childWidgetName))
+			case "QWidget":
+			case "QFrame":
+			default:
+				log.Warnf("Should add code for %s inner widget?", widgetName)
 			}
 		}
 	}
