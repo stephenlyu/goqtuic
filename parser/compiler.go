@@ -758,26 +758,29 @@ func (this *compiler) translateListWidget(widget *QWidget) {
 		return
 	}
 
-	this.defineListItem()
 	widgetName := this.transVarName(widget.Name)
 
-	this.defineSortingEnabled()
-	this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
+	if widget.Items != nil && len(widget.Items) > 0 {
+		this.defineListItem()
 
-	for i, item := range widget.Items {
-		this.addSetupUICode("listItem = widgets.NewQListWidgetItem(nil, 0)")
-		this.addSetupUICode(fmt.Sprintf("this.%s.AddItem2(listItem)", widgetName))
-		for _, prop := range item.Props {
-			if prop.Name != "text" {
-				log.Errorf("unknown list widget item property %s", prop.Name)
-				continue
+		this.defineSortingEnabled()
+		this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
+		for i, item := range widget.Items {
+			this.addSetupUICode("listItem = widgets.NewQListWidgetItem(nil, 0)")
+			this.addSetupUICode(fmt.Sprintf("this.%s.AddItem2(listItem)", widgetName))
+			for _, prop := range item.Props {
+				if prop.Name != "text" {
+					log.Errorf("unknown list widget item property %s", prop.Name)
+					continue
+				}
+				value, _ := prop.Value.(*String)
+
+				this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 			}
-			value, _ := prop.Value.(*String)
-
-			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
+		this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
 	}
-	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
+
 }
 
 func (this *compiler) translateTableWidget(widget *QWidget) {
@@ -785,52 +788,60 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetColumnCount(%d)", widgetName, len(widget.Columns)))
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetRowCount(%d)", widgetName, len(widget.Rows)))
 
-	this.defineTableItem()
-	for i, row := range widget.Rows {
-		this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
-		this.addSetupUICode(fmt.Sprintf("this.%s.SetVerticalHeaderItem(%d, tableItem)", widgetName, i))
-		for _, prop := range row.Props {
-			if prop.Name != "text" {
-				log.Errorf("unknown table widget header item property %s", prop.Name)
-				continue
-			}
-			value, _ := prop.Value.(*String)
+	if len(widget.Rows) > 0 {
+		this.defineTableItem()
+		for i, row := range widget.Rows {
+			this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
+			this.addSetupUICode(fmt.Sprintf("this.%s.SetVerticalHeaderItem(%d, tableItem)", widgetName, i))
+			for _, prop := range row.Props {
+				if prop.Name != "text" {
+					log.Errorf("unknown table widget header item property %s", prop.Name)
+					continue
+				}
+				value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
+				this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
+			}
 		}
 	}
 
-	for i, column := range widget.Columns {
-		this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
-		this.addSetupUICode(fmt.Sprintf("this.%s.SetHorizontalHeaderItem(%d, tableItem)", widgetName, i))
-		for _, prop := range column.Props {
-			if prop.Name != "text" {
-				log.Errorf("unknown table widget header item property %s", prop.Name)
-				continue
-			}
-			value, _ := prop.Value.(*String)
+	if len(widget.Columns) > 0 {
+		this.defineTableItem()
+		for i, column := range widget.Columns {
+			this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
+			this.addSetupUICode(fmt.Sprintf("this.%s.SetHorizontalHeaderItem(%d, tableItem)", widgetName, i))
+			for _, prop := range column.Props {
+				if prop.Name != "text" {
+					log.Errorf("unknown table widget header item property %s", prop.Name)
+					continue
+				}
+				value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
+				this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
+			}
 		}
 	}
 
-	this.defineSortingEnabled()
-	this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
+	if len(widget.Items) > 0 {
+		this.defineTableItem()
+		this.defineSortingEnabled()
+		this.addTranslateCode(fmt.Sprintf("sortingEnabled = this.%s.IsSortingEnabled()", widgetName))
 
-	for _, item := range widget.Items {
-		this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
-		this.addSetupUICode(fmt.Sprintf("this.%s.SetItem(%d, %d, tableItem)", widgetName, item.Row, item.Column))
-		for _, prop := range item.Props {
-			if prop.Name != "text" {
-				log.Errorf("unknown table widget header item property %s", prop.Name)
-				continue
+		for _, item := range widget.Items {
+			this.addSetupUICode("tableItem = widgets.NewQTableWidgetItem(0)")
+			this.addSetupUICode(fmt.Sprintf("this.%s.SetItem(%d, %d, tableItem)", widgetName, item.Row, item.Column))
+			for _, prop := range item.Props {
+				if prop.Name != "text" {
+					log.Errorf("unknown table widget header item property %s", prop.Name)
+					continue
+				}
+				value, _ := prop.Value.(*String)
+
+				this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d, %d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, item.Row, item.Column, this.RootWidgetName, strconv.Quote(value.Value)))
 			}
-			value, _ := prop.Value.(*String)
-
-			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d, %d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, item.Row, item.Column, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
+		this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
 	}
-	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
 
 	// Translate attributes
 
@@ -1084,6 +1095,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 				this.addSetupUICode(fmt.Sprintf("this.%s.AddWidget(this.%s)", widgetName, childWidgetName))
 			case "QWidget":
 			case "QFrame":
+			case "QSplitter":
 			default:
 				log.Warnf("Should add code for %s inner widget?", widgetName)
 			}
