@@ -4,3 +4,6 @@ ui/*
 deploy
 parser/test
 parser/sample/rcc*
+sample/rcc*
+uigen
+sample/main.go
