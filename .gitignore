@@ -1,2 +1,6 @@
 *.iml
 .idea
+ui/*
+deploy
+parser/test
+parser/sample/rcc*
