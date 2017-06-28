@@ -1,7 +1,7 @@
 # Sample Directory Structure
 
-goqtuic
+- Compile all ui files in "ui" directory:  `goqtuic`
 
 or
 
-goqtuic -ui-file ui/test.ui -go-test-file main.go
+- Compile ui & generate test file: `goqtuic -ui-file ui/test.ui -go-test-file main.go`
