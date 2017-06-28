@@ -794,20 +794,37 @@ func (this *compiler) translateTreeItemProps(callObject string, varName string, 
 	}
 }
 
+func (this *compiler) needDefineTreeItemVar(item *QWidgetItem) bool {
+	if len(item.Items) > 0 {
+		return true
+	}
+
+	for _, prop := range item.Props {
+		if prop.Name != "text" {
+			return true
+		}
+	}
+	return false
+}
+
 func (this *compiler) translateTreeWidgetItem(callObject string, parentName string, item *QWidgetItem) {
 	fmt.Println(len(item.Items))
 	if item.Items == nil || len(item.Items) == 0 {
 		return
 	}
 	for i, childItem := range item.Items {
-		varName := this.defineTreeItem()
+		if this.needDefineTreeItemVar(childItem) {
+			varName := this.defineTreeItem()
 
-		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem6(%s, 0)", varName, parentName))
-		childCallObject := fmt.Sprintf("%s.Child(%d)", callObject, i)
-		this.translateTreeItemProps(childCallObject, varName, childItem)
-		this.translateTreeWidgetItem(childCallObject, varName, childItem)
+			this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem6(%s, 0)", varName, parentName))
+			childCallObject := fmt.Sprintf("%s.Child(%d)", callObject, i)
+			this.translateTreeItemProps(childCallObject, varName, childItem)
+			this.translateTreeWidgetItem(childCallObject, varName, childItem)
 
-		this.undefineTreeItem(varName)
+			this.undefineTreeItem(varName)
+		} else {
+			this.addSetupUICode(fmt.Sprintf("widgets.NewQTreeWidgetItem6(%s, 0)", parentName))
+		}
 	}
 }
 
@@ -838,14 +855,17 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 
 	if widget.Items != nil && len(widget.Items) > 0 {
 		for i, item := range widget.Items {
-			varName := this.defineTreeItem()
+			if this.needDefineTreeItemVar(item) {
+				varName := this.defineTreeItem()
+				this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem3(this.%s, 0)", varName, widgetName))
+				callObject := fmt.Sprintf("this.%s.TopLevelItem(%d)", widgetName, i)
+				this.translateTreeItemProps(callObject, varName, item)
+				this.translateTreeWidgetItem(callObject, varName, item)
 
-			this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem3(this.%s, 0)", varName, widgetName))
-			callObject := fmt.Sprintf("this.%s.TopLevelItem(%d)", widgetName, i)
-			this.translateTreeItemProps(callObject, varName, item)
-			this.translateTreeWidgetItem(callObject, varName, item)
-
-			this.undefineTreeItem(varName)
+				this.undefineTreeItem(varName)
+			} else {
+				this.addSetupUICode(fmt.Sprintf("widgets.NewQTreeWidgetItem3(this.%s, 0)", widgetName))
+			}
 		}
 	}
 
