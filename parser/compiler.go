@@ -348,9 +348,9 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *String:
 		str := prop.Value.(*String)
 		if !str.NotR {
-			this.addTranslateCode(fmt.Sprintf("%s.Set%s(_translate(\"%s\", \"%s\", \"\", -1))", name, this.toCamelCase(prop.Name), this.RootWidgetName, str.Value))
+			this.addTranslateCode(fmt.Sprintf("%s.Set%s(_translate(\"%s\", %s, \"\", -1))", name, this.toCamelCase(prop.Name), this.RootWidgetName, strconv.Quote(str.Value)))
 		} else {
-			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s\"%s\")", name, this.toCamelCase(prop.Name), paramPrefix, str.Value))
+			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, strconv.Quote(str.Value)))
 		}
 	case *StringList:
 		log.Errorf("string list prop %s not supported", prop.Name)
@@ -657,7 +657,7 @@ func (this *compiler) translateComboBox(widget *QWidget) {
 					continue
 				}
 				value, _ := prop.Value.(*String)
-				this.addTranslateCode(fmt.Sprintf("this.%s.SetItemText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("this.%s.SetItemText(_translate(\"%s\", %s, \"\", -1))", widgetName, this.RootWidgetName, strconv.Quote(value.Value)))
 			}
 		}
 	}
@@ -684,7 +684,7 @@ func (this *compiler) translateListWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
 	}
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
@@ -706,7 +706,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
 	}
 
@@ -720,7 +720,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
 	}
 
@@ -737,7 +737,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d, %d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, item.Row, item.Column, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d, %d).SetText(_translate(\"%s\", %s, \"\", -1))", widgetName, item.Row, item.Column, this.RootWidgetName, strconv.Quote(value.Value)))
 		}
 	}
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
@@ -785,7 +785,7 @@ func (this *compiler) translateTreeItemProps(callObject string, varName string, 
 			column++
 			value := prop.Value.(*String)
 			if value.Value != "" {
-				this.addTranslateCode(fmt.Sprintf("%s.SetText(%d, _translate(\"%s\", \"%s\", \"\", -1))", callObject, column, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("%s.SetText(%d, _translate(\"%s\", %s, \"\", -1))", callObject, column, this.RootWidgetName, strconv.Quote(value.Value)))
 			}
 			continue
 		}
@@ -829,7 +829,7 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 				}
 				value, _ := prop.Value.(*String)
 
-				this.addTranslateCode(fmt.Sprintf("this.%s.HeaderItem().SetText(%d, _translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("this.%s.HeaderItem().SetText(%d, _translate(\"%s\", %s, \"\", -1))", widgetName, i, this.RootWidgetName, strconv.Quote(value.Value)))
 			}
 		}
 		this.undefineTreeItem(varName)
@@ -934,12 +934,12 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 				for _, attr := range childWidget.Attributes {
 					if attr.Name == "title" {
 						value := attr.Value.(*String)
-						this.addTranslateCode(fmt.Sprintf("this.%s.SetTabText(this.%s.IndexOf(this.%s), _translate(\"%s\", \"%s\", \"\", -1))",
+						this.addTranslateCode(fmt.Sprintf("this.%s.SetTabText(this.%s.IndexOf(this.%s), _translate(\"%s\", %s, \"\", -1))",
 							widgetName,
 							widgetName,
 							childWidgetName,
 							this.RootWidgetName,
-							value.Value))
+							strconv.Quote(value.Value)))
 					}
 				}
 			} else {
