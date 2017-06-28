@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"github.com/huandu/xstrings"
 	"strconv"
+	"os"
+	"io/ioutil"
 )
 
 type compiler struct {
@@ -162,7 +164,8 @@ func (this *compiler) defineButtonGroup(buttonGroupName string) string {
 	}
 
 	this.addImport("widgets")
-	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.NewButtonGroup(%s)", varName, this.RootWidgetName))
+	this.addVariableCode(fmt.Sprintf("%s *widgets.QButtonGroup", varName))
+	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.NewQButtonGroup(%s)", varName, this.RootWidgetName))
 	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", varName, buttonGroupName))
 	this.DefinedButtonGroups[varName] = true
 	return varName
@@ -215,7 +218,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *QColor:
 		color := prop.Value.(*QColor)
 		this.addImport("gui")
-		valueStr = fmt.Sprintf("gui.NewColor3(%d, %d, %d, %d)",
+		valueStr = fmt.Sprintf("gui.NewQColor3(%d, %d, %d, %d)",
 			color.Red,
 			color.Green,
 			color.Blue,
@@ -229,18 +232,18 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 		cursorShape, _ := prop.Value.(*CursorShape)
 		this.addImport("core")
 		this.addImport("gui")
-		valueStr = fmt.Sprintf("core.NewQCursor2(core.Qt__%s)", cursorShape.Value)
+		valueStr = fmt.Sprintf("gui.NewQCursor2(core.Qt__%s)", cursorShape.Value)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Enum:
 		enum, _ := prop.Value.(*Enum)
 		valueStr = this.enumToString(enum.Value)
-		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s, %s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QFont:
 		this.defineFont()
 		this.addSetupUICode("font = gui.NewQFont()")
 		font := prop.Value.(*QFont)
 		if font.Family != "" {
-			this.addSetupUICode(fmt.Sprintf("font.SetFamily(%s)", font.Family))
+			this.addSetupUICode(fmt.Sprintf("font.SetFamily(\"%s\")", font.Family))
 		}
 		if font.PointSize != 0 {
 			this.addSetupUICode(fmt.Sprintf("font.SetPointSize(%d)", font.PointSize))
@@ -283,7 +286,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 
 				colorRole := item.ColorRole
 				brush := colorRole.Brush
-				this.addSetupUICode(fmt.Sprintf("brush = gui.NewBrush3(gui.NewColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
+				this.addSetupUICode(fmt.Sprintf("brush = gui.NewQBrush3(gui.NewQColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
 					brush.Color.Green,
 					brush.Color.Blue,
 					brush.Color.Alpha,
@@ -307,12 +310,12 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *QPoint:
 		point := prop.Value.(*QPoint)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewPoint2(%d, %d)", point.X, point.Y)
+		valueStr = fmt.Sprintf("core.NewQPoint2(%d, %d)", point.X, point.Y)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QRect:
 		rect := prop.Value.(*QRect)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewRect4(%d, %d, %d, %d)", rect.X, rect.Y, rect.Width, rect.Height)
+		valueStr = fmt.Sprintf("core.NewQRect4(%d, %d, %d, %d)", rect.X, rect.Y, rect.Width, rect.Height)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *Set:
 		set := prop.Value.(*Set)
@@ -326,12 +329,12 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *QLocale:
 		locale := prop.Value.(*QLocale)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewQLocale2(core.QLocale__%s, core.QLocale__%s)", locale.Language, locale.Country)
+		valueStr = fmt.Sprintf("core.NewQLocale3(core.QLocale__%s, core.QLocale__%s)", locale.Language, locale.Country)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QSizePolicy:
 		sizePolicy := prop.Value.(*QSizePolicy)
 		this.defineSizePolicy()
-		this.addSetupUICode(fmt.Sprintf("sizePolicy = widgets.NewQSizePolicy2(widgets.QSizePolicy__%s, widgets.QSizePolicy__%s)",
+		this.addSetupUICode(fmt.Sprintf("sizePolicy = widgets.NewQSizePolicy2(widgets.QSizePolicy__%s, widgets.QSizePolicy__%s, widgets.QSizePolicy__DefaultType)",
 			sizePolicy.HSizeType, sizePolicy.VSizeType))
 		this.addSetupUICode(fmt.Sprintf("sizePolicy.SetHorizontalStretch(%d)", sizePolicy.HorStretch))
 		this.addSetupUICode(fmt.Sprintf("sizePolicy.SetVerticalStretch(%d)", sizePolicy.VerStretch))
@@ -345,7 +348,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *String:
 		str := prop.Value.(*String)
 		if !str.NotR {
-			this.addTranslateCode(fmt.Sprintf("%s.Set%s(_translate(\"%s\", \"%s\", \"\", -1)", name, this.toCamelCase(prop.Name), this.RootWidgetName, str.Value))
+			this.addTranslateCode(fmt.Sprintf("%s.Set%s(_translate(\"%s\", \"%s\", \"\", -1))", name, this.toCamelCase(prop.Name), this.RootWidgetName, str.Value))
 		} else {
 			this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s\"%s\")", name, this.toCamelCase(prop.Name), paramPrefix, str.Value))
 		}
@@ -373,24 +376,24 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 	case *DateTime:
 		datetime := prop.Value.(*DateTime)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewDateTime3(core.NewQDate3(%d, %d, %d), core.NewTime3(%d, %d, %d, 0), core.Qt__LocalTime)",
+		valueStr = fmt.Sprintf("core.NewQDateTime3(core.NewQDate3(%d, %d, %d), core.NewQTime3(%d, %d, %d, 0), core.Qt__LocalTime)",
 			datetime.Year, datetime.Month, datetime.Day,
 			datetime.Hour, datetime.Minute, datetime.Second)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QPointF:
 		point := prop.Value.(*QPointF)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewPoint2(%d, %d)", point.X, point.Y)
+		valueStr = fmt.Sprintf("core.NewQPointF2(%d, %d)", point.X, point.Y)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QRectF:
 		rect := prop.Value.(*QRectF)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewRect4(%f, %f, %f, %f)", rect.X, rect.Y, rect.Width, rect.Height)
+		valueStr = fmt.Sprintf("core.NewQRect4(%f, %f, %f, %f)", rect.X, rect.Y, rect.Width, rect.Height)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case *QSizeF:
 		size := prop.Value.(*QSizeF)
 		this.addImport("core")
-		valueStr = fmt.Sprintf("core.NewQSize2(%d, %d)", size.Width, size.Height)
+		valueStr = fmt.Sprintf("core.NewQSize2(%f, %f)", size.Width, size.Height)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case int64:
 		valueStr = fmt.Sprintf("%d", prop.Value)
@@ -407,7 +410,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 		if brush.Color != nil {
 			this.defineBrush()
 			this.addImport("core")
-			this.addSetupUICode(fmt.Sprintf("brush = gui.NewBrush3(gui.NewColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
+			this.addSetupUICode(fmt.Sprintf("brush = gui.NewQBrush3(gui.NewQColor3(%d, %d, %d, %d), core.Qt__%s)", brush.Color.Red,
 				brush.Color.Green,
 				brush.Color.Blue,
 				brush.Color.Alpha,
@@ -502,28 +505,27 @@ func (this *compiler) translateSpacer(parentName string, spacer *QSpacer) {
 		}
 	}
 
-	this.addVariableCode(fmt.Sprintf("var %s *widgets.QSpacerItem", spacer.Name))
+	this.addVariableCode(fmt.Sprintf("%s *widgets.QSpacerItem", spacerName))
 	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.NewQSpacerItem(%d, %d, %s, %s)", spacerName, w, h, hPolicy, vPolicy))
-	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", spacerName, spacerName))
 }
 
-func (this *compiler) translateLayoutItem(parentName string, parentClass string, item *QLayoutItem) {
+func (this *compiler) translateLayoutItem(parentWidgetName, parentName string, parentClass string, item *QLayoutItem) {
 	var childType string
 	var childName string
 	switch item.View.(type) {
 	case *QLayout:
 		layout, _ := item.View.(*QLayout)
-		this.translateLayout(parentName, layout)
+		this.translateLayout(parentWidgetName, layout)
 		childType = "Layout"
 		childName = this.transVarName(layout.Name)
 	case *QSpacer:
 		spacer, _ := item.View.(*QSpacer)
-		this.translateSpacer(parentName, spacer)
+		this.translateSpacer(parentWidgetName, spacer)
 		childType = "Item"
 		childName = this.transVarName(spacer.Name)
 	case *QWidget:
 		widget, _ := item.View.(*QWidget)
-		this.translateWidget(parentName, widget)
+		this.translateWidget(parentWidgetName, widget)
 		childType = "Widget"
 		childName = this.transVarName(widget.Name)
 	}
@@ -552,9 +554,14 @@ func (this *compiler) translateLayoutItem(parentName string, parentClass string,
 func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 	layoutName := this.transVarName(layout.Name)
 	this.addImport("widgets")
-	this.addVariableCode(fmt.Sprintf("var %s *widgets.%s", layoutName, layout.Class))
-	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s)", layoutName, layout.Class, parentName))
-	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", layoutName, layoutName))
+	this.addVariableCode(fmt.Sprintf("%s *widgets.%s", layoutName, layout.Class))
+	switch layout.Class {
+	case "QVBoxLayout":
+	case "QHBoxLayout":
+		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s2(%s)", layoutName, layout.Class, parentName))
+	default:
+		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s)", layoutName, layout.Class, parentName))
+	}
 
 	leftMargin, rightMargin, topMargin, bottomMargin := 0, 0, 0, 0
 	spacing := 0
@@ -598,7 +605,7 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 	// Translate items
 	if layout.Items != nil {
 		for _, item := range layout.Items {
-			this.translateLayoutItem("this." + layoutName, layout.Class, item)
+			this.translateLayoutItem(parentName, "this." + layoutName, layout.Class, item)
 		}
 	}
 
@@ -650,7 +657,7 @@ func (this *compiler) translateComboBox(widget *QWidget) {
 					continue
 				}
 				value, _ := prop.Value.(*String)
-				this.addTranslateCode(fmt.Sprintf("this.%s.SetItemText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("this.%s.SetItemText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, this.RootWidgetName, value.Value))
 			}
 		}
 	}
@@ -669,7 +676,7 @@ func (this *compiler) translateListWidget(widget *QWidget) {
 
 	for i, item := range widget.Items {
 		this.addSetupUICode("listItem = widgets.NewQListWidgetItem(nil, 0)")
-		this.addSetupUICode(fmt.Sprintf("this.%s.addItem(listItem)", widgetName))
+		this.addSetupUICode(fmt.Sprintf("this.%s.AddItem(listItem)", widgetName))
 		for _, prop := range item.Props {
 			if prop.Name != "text" {
 				log.Errorf("unknown list widget item property %s", prop.Name)
@@ -677,7 +684,7 @@ func (this *compiler) translateListWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.item(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
 		}
 	}
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
@@ -699,7 +706,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.VerticalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
 		}
 	}
 
@@ -713,7 +720,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, i, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.HorizontalHeaderItem(%d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
 		}
 	}
 
@@ -730,7 +737,7 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			}
 			value, _ := prop.Value.(*String)
 
-			this.addTranslateCode(fmt.Sprintf("this.%s.item(%d, %d).SetText(_translate(\"%s\", \"%s\", \"\", -1)", widgetName, item.Row, item.Column, this.RootWidgetName, value.Value))
+			this.addTranslateCode(fmt.Sprintf("this.%s.Item(%d, %d).SetText(_translate(\"%s\", \"%s\", \"\", -1))", widgetName, item.Row, item.Column, this.RootWidgetName, value.Value))
 		}
 	}
 	this.addTranslateCode(fmt.Sprintf("this.%s.SetSortingEnabled(sortingEnabled)", widgetName))
@@ -760,12 +767,12 @@ func (this *compiler) translateTableWidget(widget *QWidget) {
 			log.Errorf("string attribute not support by table widget ")
 		case int:
 			value := attr.Value.(int)
-			this.addSetupUICode(fmt.Sprintf("this.%s.%s().set%s(%d)", widgetName, funcName, propName, value))
+			this.addSetupUICode(fmt.Sprintf("this.%s.%s().Set%s(%d)", widgetName, funcName, propName, value))
 		case float64:
 			log.Errorf("double attribute not support by table widget ")
 		case bool:
 			value := attr.Value.(bool)
-			this.addSetupUICode(fmt.Sprintf("this.%s.%s().set%s(%s)", widgetName, funcName, propName, boolToString(value)))
+			this.addSetupUICode(fmt.Sprintf("this.%s.%s().Set%s(%s)", widgetName, funcName, propName, boolToString(value)))
 		}
 	}
 }
@@ -778,7 +785,7 @@ func (this *compiler) translateTreeItemProps(callObject string, varName string, 
 			column++
 			value := prop.Value.(*String)
 			if value.Value != "" {
-				this.addTranslateCode(fmt.Sprintf("%s.SetText(%d, _translate(\"%s\", \"%s\", \"\", -1)", callObject, column, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("%s.SetText(%d, _translate(\"%s\", \"%s\", \"\", -1))", callObject, column, this.RootWidgetName, value.Value))
 			}
 			continue
 		}
@@ -795,8 +802,8 @@ func (this *compiler) translateTreeWidgetItem(callObject string, parentName stri
 	for i, childItem := range item.Items {
 		varName := this.defineTreeItem()
 
-		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(%s, 0)", varName, parentName))
-		childCallObject := fmt.Sprintf("%s.child(%d)", callObject, i)
+		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem6(%s, 0)", varName, parentName))
+		childCallObject := fmt.Sprintf("%s.Child(%d)", callObject, i)
 		this.translateTreeItemProps(childCallObject, varName, childItem)
 		this.translateTreeWidgetItem(childCallObject, varName, childItem)
 
@@ -812,7 +819,7 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 
 	if widget.Columns != nil && len(widget.Columns) > 0 {
 		varName := this.defineTreeItem()
-		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(this.%s, 0)", varName, widgetName))
+		this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem3(this.%s, 0)", varName, widgetName))
 		this.addSetupUICode(fmt.Sprintf("this.%s.SetHeaderItem(%s)", widgetName, varName))
 		for i, column := range widget.Columns {
 			for _, prop := range column.Props {
@@ -822,7 +829,7 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 				}
 				value, _ := prop.Value.(*String)
 
-				this.addTranslateCode(fmt.Sprintf("this.%s.HeaderItem().SetText(%d, _translate(\"%s\", \"%s\", \"\", -1)", widgetName, i, this.RootWidgetName, value.Value))
+				this.addTranslateCode(fmt.Sprintf("this.%s.HeaderItem().SetText(%d, _translate(\"%s\", \"%s\", \"\", -1))", widgetName, i, this.RootWidgetName, value.Value))
 			}
 		}
 		this.undefineTreeItem(varName)
@@ -833,7 +840,7 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 		for i, item := range widget.Items {
 			varName := this.defineTreeItem()
 
-			this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem(this.%s, 0)", varName, widgetName))
+			this.addSetupUICode(fmt.Sprintf("%s = widgets.NewQTreeWidgetItem3(this.%s, 0)", varName, widgetName))
 			callObject := fmt.Sprintf("this.%s.TopLevelItem(%d)", widgetName, i)
 			this.translateTreeItemProps(callObject, varName, item)
 			this.translateTreeWidgetItem(callObject, varName, item)
@@ -856,12 +863,12 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 			log.Errorf("string attribute not support by tree widget ")
 		case int:
 			value := attr.Value.(int)
-			this.addSetupUICode(fmt.Sprintf("this.%s.header().set%s(%d)", widgetName, propName, value))
+			this.addSetupUICode(fmt.Sprintf("this.%s.Header().Set%s(%d)", widgetName, propName, value))
 		case float64:
 			log.Errorf("double attribute not support by table widget ")
 		case bool:
 			value := attr.Value.(bool)
-			this.addSetupUICode(fmt.Sprintf("this.%s.header().set%s(%s)", widgetName, propName, boolToString(value)))
+			this.addSetupUICode(fmt.Sprintf("this.%s.Header().Set%s(%s)", widgetName, propName, boolToString(value)))
 		}
 	}
 }
@@ -869,8 +876,15 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 	widgetName := this.transVarName(widget.Name)
 	this.addImport("widgets")
-	this.addVariableCode(fmt.Sprintf("var %s *widgets.%s", widgetName, widget.Class))
-	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s)", widgetName, widget.Class, parentName))
+	this.addVariableCode(fmt.Sprintf("%s *widgets.%s", widgetName, widget.Class))
+	switch widget.Class {
+	case "QWidget":
+	case "QLabel":
+		this.addImport("core")
+		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s, core.Qt__Widget)", widgetName, widget.Class, parentName))
+	default:
+		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s)", widgetName, widget.Class, parentName))
+	}
 	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", widgetName, widgetName))
 
 	// Set Properties
@@ -899,7 +913,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 			case "buttonGroup":
 				buttonGroupName := attr.Value.(*String)
 				varName := this.defineButtonGroup(buttonGroupName.Value)
-				this.addSetupUICode(fmt.Sprintf("this.%s.addButton(this.%s)", varName, widgetName))
+				this.addSetupUICode(fmt.Sprintf("this.%s.AddButton(this.%s)", varName, widgetName))
 			default:
 				// TODO:
 			}
@@ -915,12 +929,12 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 			this.translateWidget("this." + widgetName, childWidget)
 			childWidgetName := this.transVarName(childWidget.Name)
 			if widget.Class == "QTabWidget" {
-				this.addSetupUICode(fmt.Sprintf("this.%s.addTab(this.%s, \"\")", widgetName, childWidgetName))
+				this.addSetupUICode(fmt.Sprintf("this.%s.AddTab(this.%s, \"\")", widgetName, childWidgetName))
 
 				for _, attr := range childWidget.Attributes {
 					if attr.Name == "title" {
 						value := attr.Value.(*String)
-						this.addTranslateCode(fmt.Sprintf("this.%s.SetTabText(this.%s.IndexOf(this.%s), _translate(\"%s\", \"%s\", \"\", -1)",
+						this.addTranslateCode(fmt.Sprintf("this.%s.SetTabText(this.%s.IndexOf(this.%s), _translate(\"%s\", \"%s\", \"\", -1))",
 							widgetName,
 							widgetName,
 							childWidgetName,
@@ -929,7 +943,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 					}
 				}
 			} else {
-				this.addSetupUICode(fmt.Sprintf("this.%s.addWidget(this.%s)", widgetName, childWidgetName))
+				this.addSetupUICode(fmt.Sprintf("this.%s.AddWidget(this.%s)", widgetName, childWidgetName))
 			}
 		}
 	}
@@ -1001,8 +1015,11 @@ func (this *compiler) GenerateCode(packageName string, goFile string) error {
 		}
 	}
 
-	indent := "    "
-	code := fmt.Sprintf(`import (
+	indent := "	"
+	code := fmt.Sprintf(`// WARNING! All changes made in this file will be lost!
+package %s
+
+import (
 %s
 )
 
@@ -1021,7 +1038,8 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
     _translate := core.QCoreApplication_Translate
 %s
 }
-`, this.getImports(indent),
+`, packageName,
+		this.getImports(indent),
 		className,
 		this.getVariableCodes(indent),
 		className,
@@ -1035,7 +1053,7 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 		this.widget.Class,
 		this.getTranslateCodes(indent))
 
-	fmt.Println(code)
-
-	return nil
+	dir := filepath.Dir(goFile)
+	os.MkdirAll(dir, 0666)
+	return ioutil.WriteFile(goFile, []byte(code), 0666)
 }

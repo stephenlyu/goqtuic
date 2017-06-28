@@ -15,7 +15,7 @@ var _ = Describe("TestParser", func() {
 		}
 
 		compiler.Parse()
-		compiler.GenerateCode("main", "")
+		compiler.GenerateCode("parser", "sample/test_ui.go")
 	})
 })
 
