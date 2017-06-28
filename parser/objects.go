@@ -169,6 +169,23 @@ type QPalette struct {
 	Disabled *ColorGroup
 }
 
+type QPixmap struct {
+	Value string
+}
+
+type QIcon struct {
+	NormalOff string
+	NormalOn string
+	DisabledOff string
+	DisabledOn string
+	ActiveOff string
+	ActiveOn string
+	SelectedOff string
+	SelectedOn string
+
+	Theme string
+}
+
 type Property struct {
 	Name string
 	StdSet bool

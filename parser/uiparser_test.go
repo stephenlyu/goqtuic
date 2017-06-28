@@ -9,14 +9,14 @@ import (
 
 var _ = Describe("TestParser", func() {
 	It("test", func() {
-		err, compiler := NewCompiler("test.ui")
+		err, compiler := NewCompiler("../sample/ui/test.ui")
 		if err != nil {
 			panic(err)
 		}
 
 		compiler.Parse()
 		compiler.GenerateCode("main", "test/test_ui/test_ui.go")
-		compiler.GenerateTestCode("test/test_ui/main.go")
+		compiler.GenerateTestCode("test/test_ui/main.go", "")
 	})
 })
 

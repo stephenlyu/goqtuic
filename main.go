@@ -32,7 +32,6 @@ func translateUIFile(uiFile string, destDir string, testGoFile string) error {
 	if testGoFile != "" {
 		var genPackage string
 		goPath := filepath.Clean(os.Getenv("GOPATH"))
-		fmt.Println(destDir, goPath)
 		if goPath != "" {
 			sourcePath := filepath.Join(goPath, "src")
 			if strings.HasPrefix(destDir, sourcePath) {

@@ -150,8 +150,8 @@
   <widget class="QListWidget" name="listWidget">
    <property name="geometry">
     <rect>
-     <x>250</x>
-     <y>180</y>
+     <x>790</x>
+     <y>270</y>
      <width>141</width>
      <height>231</height>
     </rect>
@@ -489,16 +489,26 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <item>
     <property name="text">
      <string>aaa</string>
     </property>
+    <property name="icon">
+     <iconset resource="../main.qrc">
+      <normaloff>:/unchecked/ui/images/unchecked.png</normaloff>
+      <normalon>:/checked/ui/images/checked.png</normalon>:/unchecked/ui/images/unchecked.png</iconset>
+    </property>
    </item>
    <item>
     <property name="text">
      <string>bbbb</string>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normalon>:/checked/ui/images/checked.png</normalon>
+     </iconset>
     </property>
    </item>
   </widget>
@@ -619,7 +629,7 @@ p, li { white-space: pre-wrap; }
    <property name="geometry">
     <rect>
      <x>80</x>
-     <y>870</y>
+     <y>840</y>
      <width>118</width>
      <height>23</height>
     </rect>
@@ -829,11 +839,95 @@ p, li { white-space: pre-wrap; }
     <string>PushButton</string>
    </property>
   </widget>
+  <widget class="QFrame" name="frame">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>230</y>
+     <width>120</width>
+     <height>80</height>
+    </rect>
+   </property>
+   <property name="frameShape">
+    <enum>QFrame::StyledPanel</enum>
+   </property>
+   <property name="frameShadow">
+    <enum>QFrame::Raised</enum>
+   </property>
+  </widget>
+  <widget class="Line" name="line">
+   <property name="geometry">
+    <rect>
+     <x>320</x>
+     <y>360</y>
+     <width>118</width>
+     <height>3</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+  </widget>
+  <widget class="Line" name="line_2">
+   <property name="geometry">
+    <rect>
+     <x>250</x>
+     <y>360</y>
+     <width>3</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Vertical</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_6">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>180</y>
+     <width>60</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap resource="../main.qrc">:/checked/ui/images/checked.png</pixmap>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_3">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>880</y>
+     <width>113</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PushButton</string>
+   </property>
+   <property name="icon">
+    <iconset resource="../main.qrc">
+     <normaloff>:/unchecked/ui/images/unchecked.png</normaloff>
+     <normalon>:/checked/ui/images/checked.png</normalon>
+     <disabledoff>:/unchecked/ui/images/unchecked.png</disabledoff>
+     <disabledon>:/checked/ui/images/checked.png</disabledon>
+     <activeoff>:/unchecked/ui/images/unchecked.png</activeoff>
+     <activeon>:/checked/ui/images/checked.png</activeon>
+     <selectedoff>:/unchecked/ui/images/unchecked.png</selectedoff>
+     <selectedon>:/checked/ui/images/checked.png</selectedon>:/unchecked/ui/images/unchecked.png</iconset>
+   </property>
+  </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="../main.qrc"/>
+ </resources>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

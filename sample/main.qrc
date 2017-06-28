@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version="1.0">
+  <qresource prefix="unchecked">
+    <file>ui/images/unchecked.png</file>
+  </qresource>
+  <qresource prefix="checked">
+    <file>ui/images/checked.png</file>
+  </qresource>
+</RCC>

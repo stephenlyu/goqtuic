@@ -26,6 +26,7 @@ type compiler struct {
 	BrushDefined bool
 	ListItemDefined bool
 	TableItemDefined bool
+	IconDefined bool
 
 	SortingEnabledDefined bool
 
@@ -224,6 +225,14 @@ func (this *compiler) defineTableItem() {
 	}
 }
 
+func (this *compiler) defineIcon() {
+	if !this.IconDefined{
+		this.addImport("gui")
+		this.addSetupUICode("var icon *gui.QIcon")
+		this.IconDefined = true
+	}
+}
+
 func (this *compiler) defineButtonGroup(buttonGroupName string) string {
 	varName := this.transVarName(buttonGroupName)
 	if _, ok := this.DefinedButtonGroups[varName]; ok {
@@ -273,6 +282,49 @@ func (this *compiler) defineSortingEnabled() {
 
 func (this *compiler) setProperty(name string, prop *Property){
 	this.setPropertyEx(name, "", prop)
+}
+
+func (this *compiler) translateIcon(icon *QIcon) {
+	this.defineIcon()
+	this.addImport("gui")
+	if icon.Theme != "" {
+		this.addSetupUICode(fmt.Sprintf("icon = gui.QIcon_FromTheme(\"%s\")", icon.Theme))
+	} else {
+		this.addImport("core")
+		this.addSetupUICode("icon = gui.NewQIcon()")
+
+		if icon.NormalOff != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Normal, gui.QIcon__Off)", icon.NormalOff))
+		}
+
+		if icon.NormalOn != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Normal, gui.QIcon__On)", icon.NormalOn))
+		}
+
+		if icon.DisabledOff != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Disabled, gui.QIcon__Off)", icon.DisabledOff))
+		}
+
+		if icon.DisabledOn != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Disabled, gui.QIcon__On)", icon.DisabledOn))
+		}
+
+		if icon.ActiveOff != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Active, gui.QIcon__Off)", icon.ActiveOff))
+		}
+
+		if icon.ActiveOff != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Active, gui.QIcon__On)", icon.ActiveOn))
+		}
+
+		if icon.SelectedOff != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Selected, gui.QIcon__Off)", icon.SelectedOff))
+		}
+
+		if icon.SelectedOn != "" {
+			this.addSetupUICode(fmt.Sprintf("icon.AddPixmap(gui.NewQPixmap5(\"%s\", \"\", core.Qt__AutoColor), gui.QIcon__Selected, gui.QIcon__On)", icon.SelectedOn))
+		}
+	}
 }
 
 func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Property) {
@@ -337,7 +389,15 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 			this.addSetupUICode(fmt.Sprintf("font.SetStyleStrategy(gui.%s)", strings.Replace(font.StyleStrategy, ":", "_", -1)))
 		}
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%sfont)", name, this.toCamelCase(prop.Name), paramPrefix))
-
+	case *QPixmap:
+		this.addImport("gui")
+		this.addImport("core")
+		pixmap := prop.Value.(*QPixmap)
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(gui.NewQPixmap5(%s\"%s\", \"\", core.Qt__AutoColor))", name, this.toCamelCase(prop.Name), paramPrefix, pixmap.Value))
+	case *QIcon:
+		icon := prop.Value.(*QIcon)
+		this.translateIcon(icon)
+		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%sicon)", name, this.toCamelCase(prop.Name), paramPrefix))
 	case *QPalette:
 		palette := prop.Value.(*QPalette)
 		this.definePalette()
@@ -740,10 +800,26 @@ func (this *compiler) translateComboBox(widget *QWidget) {
 	if widget.Items != nil {
 		widgetName := this.transVarName(widget.Name)
 		for i, item := range widget.Items {
-			this.addSetupUICode(fmt.Sprintf("this.%s.AddItem(\"\", core.NewQVariant())", widgetName))
+			var hasIcon bool
+			for _, prop := range item.Props {
+				if prop.Name == "icon" {
+					icon := prop.Value.(*QIcon)
+					this.translateIcon(icon)
+					hasIcon = true
+					break
+				}
+			}
+			if hasIcon {
+				this.addSetupUICode(fmt.Sprintf("this.%s.AddItem2(icon, \"\", core.NewQVariant())", widgetName))
+			} else {
+				this.addSetupUICode(fmt.Sprintf("this.%s.AddItem(\"\", core.NewQVariant())", widgetName))
+			}
+
 			for _, prop := range item.Props {
 				if prop.Name != "text" {
-					log.Errorf("unknown combobox item property %s", prop.Name)
+					if prop.Name != "icon" {
+						log.Errorf("unknown combobox item property %s", prop.Name)
+					}
 					continue
 				}
 				value, _ := prop.Value.(*String)
@@ -909,7 +985,6 @@ func (this *compiler) needDefineTreeItemVar(item *QWidgetItem) bool {
 }
 
 func (this *compiler) translateTreeWidgetItem(callObject string, parentName string, item *QWidgetItem) {
-	fmt.Println(len(item.Items))
 	if item.Items == nil || len(item.Items) == 0 {
 		return
 	}
@@ -1213,10 +1288,15 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 }
 
 func (this *compiler) GenerateTestCode(goFile string, genPackage string) error {
-	baseName := filepath.Base(genPackage)
 	var uiPackage string
-	if baseName != "" {
-		uiPackage = baseName + "."
+
+	if genPackage != "" {
+		baseName := filepath.Base(genPackage)
+		if baseName != "" {
+			uiPackage = baseName + "."
+		}
+
+		genPackage = `"` + genPackage + `"`
 	}
 
 	code := fmt.Sprintf(`package main
@@ -1225,7 +1305,7 @@ import (
 	"github.com/therecipe/qt/widgets"
 	"github.com/therecipe/qt/core"
 	"os"
-	"%s"
+	%s
 )
 
 type Window struct {

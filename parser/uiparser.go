@@ -230,6 +230,20 @@ func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
 	return ret
 }
 
+func (this *parser) parserIconSet(n *xmlx.Node) *QIcon {
+	return &QIcon{
+		NormalOff: n.S("", "normaloff"),
+		NormalOn: n.S("", "normalon"),
+		DisabledOff: n.S("", "disabledoff"),
+		DisabledOn: n.S("", "disabledon"),
+		ActiveOff: n.S("", "activeoff"),
+		ActiveOn: n.S("", "activeon"),
+		SelectedOff: n.S("", "selectedoff"),
+		SelectedOn: n.S("", "selectedon"),
+		Theme: n.As("", "theme"),
+	}
+}
+
 func (this *parser) parseAttribute(n *xmlx.Node) *Attribute {
 	var value interface{}
 
@@ -574,9 +588,9 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	case "font":
 		value = this.parseFont(child)
 	case "iconset":
-		log.Fatalf("iconset not support now. %s", child)
+		value = this.parserIconSet(child)
 	case "pixmap":
-		log.Fatalf("pixmap not support now. %s", child)
+		value = &QPixmap{Value: n.S("", "pixmap")}
 	case "palette":
 		value = this.parsePalette(child)
 	case "point":
