@@ -5,10 +5,12 @@ import (
 	"strings"
 	"github.com/z-ray/log"
 	"path/filepath"
-	"github.com/huandu/xstrings"
 	"strconv"
 	"os"
 	"io/ioutil"
+	"unicode/utf8"
+	"unicode"
+	"bytes"
 )
 
 type compiler struct {
@@ -35,6 +37,60 @@ type compiler struct {
 
 	DefinedButtonGroups map[string]bool
 	DefinedTreeItems map[string]bool
+}
+
+// ToCamelCase can convert all lower case characters behind underscores
+// to upper case character.
+// Underscore character will be removed in result except following cases.
+//     * More than 1 underscore.
+//           "a__b" => "A_B"
+//     * At the beginning of string.
+//           "_a" => "_A"
+//     * At the end of string.
+//           "ab_" => "Ab_"
+func ToCamelCase(str string) string {
+	if len(str) == 0 {
+		return ""
+	}
+
+	buf := &bytes.Buffer{}
+	var r0, r1 rune
+	var size int
+
+	// leading '_' will appear in output.
+	for len(str) > 0 {
+		r0, size = utf8.DecodeRuneInString(str)
+		str = str[size:]
+
+		if r0 != '_' {
+			break
+		}
+
+		buf.WriteRune(r0)
+	}
+
+	if len(str) == 0 {
+		return buf.String()
+	}
+
+	buf.WriteRune(unicode.ToUpper(r0))
+	r0, size = utf8.DecodeRuneInString(str)
+	str = str[size:]
+
+	for len(str) > 0 {
+		r1 = r0
+		r0, size = utf8.DecodeRuneInString(str)
+		str = str[size:]
+
+		if r1 == '_' && r0 != '_' {
+			r0 = unicode.ToUpper(r0)
+		} else {
+			buf.WriteRune(r1)
+		}
+	}
+
+	buf.WriteRune(r0)
+	return buf.String()
 }
 
 func iifs(cond bool, a, b string) string {
@@ -87,7 +143,7 @@ func (this *compiler) toCamelCase(s string) string {
 }
 
 func (this *compiler) transVarName(s string) string {
-	return strings.Replace(xstrings.ToCamelCase(s), "_", "", -1)
+	return strings.Replace(ToCamelCase(s), "_", "", -1)
 }
 
 func (this *compiler) addImport(_import string) {
@@ -443,6 +499,10 @@ func (this *compiler) getImports(indent string) string {
 }
 
 func (this *compiler) indentLines(lines []string, indent string) []string {
+	if lines == nil || len(lines) == 0 {
+		return lines
+	}
+
 	result := make([]string, len(lines))
 	for i, s := range lines {
 		result[i] = fmt.Sprintf("%s%s", indent, s)
@@ -477,9 +537,9 @@ func (this *compiler) getClassName() string {
 		baseName := filepath.Base(this.uiFile)
 		xName := filepath.Ext(baseName)
 		mainName := baseName[:len(baseName) - len(xName)]
-		return strings.Replace(fmt.Sprintf("%s%s", xstrings.ToCamelCase(mainName), widgetName), "_", "", -1)
+		return strings.Replace(fmt.Sprintf("%s%s", ToCamelCase(mainName), widgetName), "_", "", -1)
 	default:
-		return xstrings.ToCamelCase(widgetName)
+		return ToCamelCase(widgetName)
 	}
 }
 
@@ -1098,17 +1158,24 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 	return ioutil.WriteFile(goFile, []byte(code), 0644)
 }
 
-func (this *compiler) GenerateTestCode(goFile string) error {
+func (this *compiler) GenerateTestCode(goFile string, genPackage string) error {
+	baseName := filepath.Base(genPackage)
+	var uiPackage string
+	if baseName != "" {
+		uiPackage = baseName + "."
+	}
+
 	code := fmt.Sprintf(`package main
 
 import (
 	"github.com/therecipe/qt/widgets"
 	"github.com/therecipe/qt/core"
 	"os"
+	"%s"
 )
 
 type Window struct {
-	UI%s
+	%sUI%s
 	Widget *widgets.%s
 }
 
@@ -1128,10 +1195,12 @@ func main() {
 
 	os.Exit(app.Exec())
 }
-`, this.getClassName(),
-	this.widget.Class,
-	this.widget.Class,
-	this.widget.Class[1:])
+`, genPackage,
+		uiPackage,
+		this.getClassName(),
+		this.widget.Class,
+		this.widget.Class,
+		this.widget.Class[1:])
 
 	dir := filepath.Dir(goFile)
 	os.MkdirAll(dir, 0755)
