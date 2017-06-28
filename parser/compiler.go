@@ -154,13 +154,24 @@ func (this *compiler) addImport(_import string) {
 }
 
 func (this *compiler) enumToString(enum string) string {
-	if strings.HasPrefix(enum, "Qt::") {
+	parts := strings.Split(enum, "::")
+
+	ns := parts[0]
+	switch ns {
+	case "Qt":
 		this.addImport("core")
 		return fmt.Sprintf("core.%s", strings.Replace(enum, ":", "_", -1))
-	} else if strings.HasPrefix(enum, "QDialogButtonBox::") {
+	case "QDialogButtonBox":
+		fallthrough
+	case "QFrame":
+		fallthrough
+	case "QLineEdit":
+		fallthrough
+	case "QAbstractItemView":
 		this.addImport("widgets")
 		return fmt.Sprintf("widgets.%s", strings.Replace(enum, ":", "_", -1))
 	}
+
 	log.Errorf("unknown enum %s", enum)
 	return ""
 }
@@ -972,12 +983,38 @@ func (this *compiler) translateTreeWidget(widget *QWidget) {
 	}
 }
 
+func (this *compiler) convertLineWidget(widget *QWidget) *QWidget {
+	if widget.Class != "Line" {
+		return widget
+	}
+
+	props := []*Property{}
+	for _, prop := range widget.Properties {
+		if prop.Name == "orientation" {
+			props = append(props, &Property{Name: "frameShadow", Value: &Enum{Value: "QFrame::Sunken"}})
+			orientation := prop.Value.(*Enum)
+			if orientation.Value == "Qt::Horizontal" {
+				props = append(props, &Property{Name: "frameShape", Value: &Enum{Value: "QFrame::HLine"}})
+			} else {
+				props = append(props, &Property{Name: "frameShape", Value: &Enum{Value: "QFrame::VLine"}})
+			}
+		} else {
+			props = append(props, prop)
+		}
+	}
+	return &QWidget{Name: widget.Name, Class: "QFrame", Properties: props}
+}
+
 func (this *compiler) translateWidget(parentName string, widget *QWidget) {
+	widget = this.convertLineWidget(widget)
+
 	widgetName := this.transVarName(widget.Name)
 	this.addImport("widgets")
 	this.addVariableCode(fmt.Sprintf("%s *widgets.%s", widgetName, widget.Class))
 	switch widget.Class {
 	case "QWidget":
+		fallthrough
+	case "QFrame":
 		fallthrough
 	case "QLabel":
 		this.addImport("core")
