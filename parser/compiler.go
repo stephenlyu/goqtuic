@@ -34,6 +34,8 @@ type compiler struct {
 	SetupUICodes []string
 	TranslateCodes []string
 
+	AddActionCodes []string
+
 	SetCurrentIndexCodes []string
 
 	DefinedButtonGroups map[string]bool
@@ -130,6 +132,10 @@ func (this *compiler) addSetupUICode(line string) {
 
 func (this *compiler) addTranslateCode(line string) {
 	this.TranslateCodes = append(this.TranslateCodes, line)
+}
+
+func (this *compiler) addAddActionCode(line string) {
+	this.AddActionCodes = append(this.AddActionCodes, line)
 }
 
 func (this *compiler) addSetCurrentIndexCode(line string) {
@@ -780,15 +786,43 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 }
 
 func (this *compiler) translateAction(action *Action) {
+	varName := this.transVarName(action.Name)
+	this.addImport("widgets")
+	this.addVariableCode(fmt.Sprintf("%s *widgets.QAction", varName))
+	this.addSetupUICode(fmt.Sprintf("this.%s = widgets.NewQAction(%s)", varName, this.RootWidgetName))
+	this.addSetupUICode(fmt.Sprintf("this.%s.SetObjectName(\"%s\")", varName, action.Name))
 
+	for _, prop := range action.Props {
+		if prop.Name == "shortcut" {
+			value, _ := prop.Value.(*String)
+			this.addImport("gui")
+			this.addTranslateCode(fmt.Sprintf("%s.Set%s(gui.QKeySequence_FromString(_translate(\"%s\", %s, \"\", -1), gui.QKeySequence__NativeText))", "this." + varName,
+				this.toCamelCase(prop.Name), this.RootWidgetName, strconv.Quote(value.Value)))
+		} else {
+			this.setProperty("this." + varName, prop)
+		}
+	}
 }
 
 func (this *compiler) translateActionGroup(actionGroup *ActionGroup) {
-
+	// TODO:
 }
 
-func (this *compiler) translateActionRef(actionRef *ActionRef) {
-
+func (this *compiler) translateActionRef(parentName string, parentClass string, actionRef *ActionRef) {
+	if actionRef.Name == "separator" {
+		this.addAddActionCode(fmt.Sprintf("this.%s.AddSeparator()", parentName))
+	} else {
+		switch parentClass {
+		case "QToolBar":
+			fallthrough
+		case "QMenu":
+			this.addAddActionCode(fmt.Sprintf("this.%s.QWidget.AddAction(this.%s)", parentName, this.transVarName(actionRef.Name)))
+		case "QMenuBar":
+			this.addAddActionCode(fmt.Sprintf("this.%s.QWidget.AddAction(this.%s.MenuAction())", parentName, this.transVarName(actionRef.Name)))
+		default:
+			log.Errorf("%s action not supported")
+		}
+	}
 }
 
 func (this *compiler) translateZOrder(zorder string) {
@@ -1105,6 +1139,8 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 	case "QLabel":
 		this.addImport("core")
 		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s, core.Qt__Widget)", widgetName, widget.Class, parentName))
+	case "QToolBar":
+		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s2(%s)", widgetName, widget.Class, parentName))
 	default:
 		this.addSetupUICode(fmt.Sprintf("this.%s = widgets.New%s(%s)", widgetName, widget.Class, parentName))
 	}
@@ -1171,6 +1207,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 			case "QWidget":
 			case "QFrame":
 			case "QSplitter":
+			case "QMenuBar":
 			default:
 				log.Warnf("Should add code for %s inner widget?", widgetName)
 			}
@@ -1191,7 +1228,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 
 	if widget.AddActions != nil {
 		for _, actionRef := range widget.AddActions {
-			this.translateActionRef(actionRef)
+			this.translateActionRef(widgetName, widget.Class, actionRef)
 		}
 	}
 
@@ -1235,6 +1272,25 @@ func (this *compiler) GenerateCode(packageName string, goFile string) error {
 	if this.widget.Widgets != nil {
 		for _, widget := range this.widget.Widgets {
 			this.translateWidget(widgetName, widget)
+			switch widget.Class {
+			case "QMenuBar":
+				this.addSetupUICode(fmt.Sprintf("%s.SetMenuBar(this.%s)", widgetName, this.transVarName(widget.Name)))
+			case "QStatusBar":
+				this.addSetupUICode(fmt.Sprintf("%s.SetStatusBar(this.%s)", widgetName, this.transVarName(widget.Name)))
+			case "QToolBar":
+				for _, attr := range widget.Attributes {
+					if attr.Name == "toolBarArea" {
+						value := attr.Value.(*Enum)
+						this.addImport("core")
+						this.addSetupUICode(fmt.Sprintf("%s.AddToolBar(core.Qt__%s, this.%s)", widgetName, value.Value, this.transVarName(widget.Name)))
+						break
+					}
+				}
+			case "QWidget":
+				 if this.widget.Class == "QMainWindow" {
+					 this.addSetupUICode(fmt.Sprintf("%s.SetCentralWidget(this.%s)", widgetName, this.transVarName(widget.Name)))
+				 }
+			}
 		}
 	}
 
@@ -1252,7 +1308,7 @@ func (this *compiler) GenerateCode(packageName string, goFile string) error {
 
 	if this.widget.AddActions != nil {
 		for _, actionRef := range this.widget.AddActions {
-			this.translateActionRef(actionRef)
+			this.translateActionRef(widgetName, this.widget.Class, actionRef)
 		}
 	}
 
@@ -1261,6 +1317,8 @@ func (this *compiler) GenerateCode(packageName string, goFile string) error {
 			this.translateZOrder(zorder)
 		}
 	}
+
+	this.SetupUICodes = append(this.SetupUICodes, this.AddActionCodes...)
 
 	indent := "	"
 	code := fmt.Sprintf(`// WARNING! All changes made in this file will be lost!
@@ -1318,6 +1376,11 @@ func (this *compiler) GenerateTestCode(goFile string, genPackage string) error {
 		genPackage = `"` + genPackage + `"`
 	}
 
+	var widgetType string = this.widget.Class[1:]
+	if this.widget.Class == "QMainWindow" {
+		widgetType = "Window"
+	}
+
 	code := fmt.Sprintf(`package main
 
 import (
@@ -1353,7 +1416,7 @@ func main() {
 		this.getClassName(),
 		this.widget.Class,
 		this.widget.Class,
-		this.widget.Class[1:])
+		widgetType)
 
 	dir := filepath.Dir(goFile)
 	os.MkdirAll(dir, 0755)

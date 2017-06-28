@@ -260,8 +260,10 @@ func (this *parser) parseAttribute(n *xmlx.Node) *Attribute {
 		value = n.I("", "number")
 	case "double":
 		value = n.F64("", "double")
+	case "enum":
+		value = this.parseEnum(ch)
 	default:
-		log.Fatal("Bad attribute type of %s", name)
+		log.Fatalf("Bad attribute type %s of %s", ch.Name.Local, name)
 	}
 
 	return &Attribute{Name: name, Value: value}
