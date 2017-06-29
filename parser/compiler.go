@@ -1257,6 +1257,86 @@ func (this *compiler) getTabStopCodes(indent string) string {
 	return "\n" + strings.Join(lines, "\n")
 }
 
+func (this *compiler) getConnectionCodes(indent string) string {
+	if len(this.connections) == 0 {
+		return ""
+	}
+
+	var parseSignature = func (signature string) (name string, params []string) {
+		i := strings.Index(signature, "(")
+		j := strings.Index(signature, ")")
+
+		name = strings.TrimSpace(signature[:i])
+		argString := strings.TrimSpace(signature[i + 1:j])
+		if argString != "" {
+			params = strings.Split(argString, ",")
+		}
+		return
+	}
+
+	var lines []string
+
+	outer:
+	for _, n := range this.connections {
+		var sender, receiver string
+
+		sender = this.transVarName(n.Sender)
+		receiver = this.transVarName(n.Receiver)
+
+		if sender != this.RootWidgetName {
+			sender = "this." + sender
+		}
+
+		if receiver != this.RootWidgetName {
+			receiver = "this." + receiver
+		}
+
+		signal, signalParams := parseSignature(n.Signal)
+		slot, slotParams := parseSignature(n.Slot)
+
+		// Check params
+
+		if len(slotParams) > len(signalParams) {
+			log.Errorf("%s.%s and %s.%s argument mismatched!!!", n.Sender, n.Signal, n.Receiver, n.Slot)
+			continue
+		}
+		for i, paramType := range slotParams {
+			signalParamType := signalParams[i]
+			println(signalParamType, paramType)
+			if paramType != signalParamType {
+				log.Errorf("%s.%s and %s.%s argument type mismatched!!!", n.Sender, n.Signal, n.Receiver, n.Slot)
+				continue outer
+			}
+		}
+
+		if len(signalParams) == len(slotParams) {
+			lines = append(lines, fmt.Sprintf("%s%s.Connect%s(%s.%s)", indent, sender, ToCamelCase(signal), receiver, ToCamelCase(slot)))
+		} else {
+			// Wrap slot to fit signal prototype
+			wrapperCodes := []string{}
+			var addCode = func (line string) {
+				wrapperCodes = append(wrapperCodes, line)
+			}
+
+			signalArgs := make([]string, len(signalParams))
+			for i, paramType := range signalParams {
+				signalArgs[i] = fmt.Sprintf("arg%d %s", i, paramType)
+			}
+
+			slotArgs := make([]string, len(slotParams))
+			for i, _ := range slotParams {
+				slotArgs[i] = fmt.Sprintf("arg%d", i)
+			}
+
+			addCode(fmt.Sprintf("func (%s) {", strings.Join(signalArgs, ", ")))
+			addCode(fmt.Sprintf("%s%s%s.%s(%s)", indent, indent, receiver, ToCamelCase(slot), strings.Join(slotArgs, ", ")))
+			addCode(fmt.Sprintf("%s}", indent))
+			lines = append(lines, fmt.Sprintf("%s%s.Connect%s(%s)", indent, sender, ToCamelCase(signal), strings.Join(wrapperCodes, "\n")))
+		}
+	}
+	return "\n" + strings.Join(lines, "\n")
+}
+
 func (this *compiler) GenerateCode(packageName string, goFile string) error {
 	className := this.getClassName()
 	widgetName := this.transVarName(this.widget.Name)
@@ -1336,7 +1416,7 @@ func (this *UI%s) SetupUI(%s *widgets.%s) {
 %s
 
     this.RetranslateUi(%s)
-%s%s
+%s%s%s
 }
 
 func (this *UI%s) RetranslateUi(%s *widgets.%s) {
@@ -1354,6 +1434,7 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 		widgetName,
 		this.getSetCurrentIndexCodes(indent),
 		this.getTabStopCodes(indent),
+		this.getConnectionCodes(indent),
 		className,
 		widgetName,
 		this.widget.Class,

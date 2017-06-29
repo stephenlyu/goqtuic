@@ -252,6 +252,13 @@ type Action struct {
 	Attributes []*Property
 }
 
+type Connection struct {
+	Sender string
+	Signal string
+	Receiver string
+	Slot string
+}
+
 type QWidget struct {
 	// No element: class, script, widgetdata
 

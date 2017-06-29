@@ -15,6 +15,7 @@ type parser struct {
 	buttonGroups []string
 	tabStops []string
 	layoutDefault *LayoutDefault
+	connections []*Connection
 
 	widget *QWidget
 }
@@ -671,6 +672,19 @@ func (this *parser) Parse() error {
 	if buttonGroupsRoot != nil {
 		for _, ch := range buttonGroupsRoot.SelectNodesDirect("", "buttongroup") {
 			this.buttonGroups = append(this.buttonGroups, ch.As("", "name"))
+		}
+	}
+
+	// Parse Connectons
+	connectionsRoot := rootNode.SelectNode("", "connections")
+	if connectionsRoot != nil {
+		for _, ch := range connectionsRoot.SelectNodesDirect("", "connection") {
+			this.connections = append(this.connections, &Connection{
+				ch.S("", "sender"),
+				ch.S("", "signal"),
+				ch.S("", "receiver"),
+				ch.S("", "slot"),
+			})
 		}
 	}
 

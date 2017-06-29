@@ -33,6 +33,19 @@ var _ = Describe("TestParseMW", func() {
 	})
 })
 
+var _ = Describe("TestConnection", func() {
+	It("test", func() {
+		err, compiler := NewCompiler("../sample/ui/test_signal_slot.ui")
+		if err != nil {
+			panic(err)
+		}
+
+		compiler.Parse()
+		compiler.GenerateCode("main", "test/test_signal_slot_ui/test_signal_slot_ui.go")
+		compiler.GenerateTestCode("test/test_signal_slot_ui/main.go", "")
+	})
+})
+
 var _ = Describe("TestMoreParser", func() {
 	It("test", func() {
 		root := "../ui"
