@@ -1390,33 +1390,32 @@ import (
 	%s
 )
 
+//go:generate qtmoc
 type Window struct {
+	widgets.%s
 	%sUI%s
-	Widget *widgets.%s
 }
 
 func NewWidget(parent widgets.QWidget_ITF) *Window {
-	window := &Window{
-		Widget: widgets.New%s(parent, core.Qt__%s),
-	}
+	window := NewWindow(parent, core.Qt__%s)
 
-	window.SetupUI(window.Widget)
+	window.SetupUI(&window.%s)
 	return window
 }
 
 func main() {
 	app := widgets.NewQApplication(len(os.Args), os.Args)
 	w := NewWidget(nil)
-	w.Widget.Show()
+	w.Show()
 
 	os.Exit(app.Exec())
 }
 `, genPackage,
+		this.widget.Class,
 		uiPackage,
 		this.getClassName(),
-		this.widget.Class,
-		this.widget.Class,
-		widgetType)
+		widgetType,
+		this.widget.Class)
 
 	dir := filepath.Dir(goFile)
 	os.MkdirAll(dir, 0755)

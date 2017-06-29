@@ -5,5 +5,6 @@ deploy
 parser/test
 parser/sample/rcc*
 sample/rcc*
+sample/moc*
 uigen
 sample/main.go
