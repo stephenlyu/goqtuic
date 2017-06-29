@@ -35,6 +35,7 @@ type compiler struct {
 	TranslateCodes []string
 
 	AddActionCodes []string
+	BuddyCodes []string
 
 	SetCurrentIndexCodes []string
 
@@ -136,6 +137,10 @@ func (this *compiler) addTranslateCode(line string) {
 
 func (this *compiler) addAddActionCode(line string) {
 	this.AddActionCodes = append(this.AddActionCodes, line)
+}
+
+func (this *compiler) addBuddyCode(line string) {
+	this.BuddyCodes = append(this.BuddyCodes, line)
 }
 
 func (this *compiler) addSetCurrentIndexCode(line string) {
@@ -350,7 +355,13 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 			color.Alpha)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case string:
-		log.Errorf("cstring property %s not supported", prop.Name)
+		switch(prop.Name) {
+		case "buddy":
+			valueStr, _ := prop.Value.(string)
+			this.addBuddyCode(fmt.Sprintf("%s.Set%s(%sthis.%s)", name, this.toCamelCase(prop.Name), paramPrefix, this.transVarName(valueStr)))
+		default:
+			log.Errorf("cstring property %s not supported", prop.Name)
+		}
 	case *Cursor:
 	// TODO:
 	case *CursorShape:
@@ -597,6 +608,10 @@ func (this *compiler) getSetupUICodes(indent string) string {
 
 func (this *compiler) getTranslateCodes(indent string) string {
 	return strings.Join(this.indentLines(this.TranslateCodes, indent), "\n")
+}
+
+func (this *compiler) getBuddyCodes(indent string) string {
+	return "\n" + strings.Join(this.indentLines(this.BuddyCodes, indent), "\n")
 }
 
 func (this *compiler) getSetCurrentIndexCodes(indent string) string {
@@ -1413,7 +1428,7 @@ type UI%s struct {
 }
 
 func (this *UI%s) SetupUI(%s *widgets.%s) {
-%s
+%s%s
 
     this.RetranslateUi(%s)
 %s%s%s
@@ -1431,6 +1446,7 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 		widgetName,
 		this.widget.Class,
 		this.getSetupUICodes(indent),
+		this.getBuddyCodes(indent),
 		widgetName,
 		this.getSetCurrentIndexCodes(indent),
 		this.getTabStopCodes(indent),
