@@ -1272,21 +1272,21 @@ func (this *compiler) getTabStopCodes(indent string) string {
 	return "\n" + strings.Join(lines, "\n")
 }
 
+func (this *compiler) parseSignature(signature string) (name string, params []string) {
+	i := strings.Index(signature, "(")
+	j := strings.Index(signature, ")")
+
+	name = strings.TrimSpace(signature[:i])
+	argString := strings.TrimSpace(signature[i + 1:j])
+	if argString != "" {
+		params = strings.Split(argString, ",")
+	}
+	return
+}
+
 func (this *compiler) getConnectionCodes(indent string) string {
 	if len(this.connections) == 0 {
 		return ""
-	}
-
-	var parseSignature = func (signature string) (name string, params []string) {
-		i := strings.Index(signature, "(")
-		j := strings.Index(signature, ")")
-
-		name = strings.TrimSpace(signature[:i])
-		argString := strings.TrimSpace(signature[i + 1:j])
-		if argString != "" {
-			params = strings.Split(argString, ",")
-		}
-		return
 	}
 
 	var lines []string
@@ -1306,8 +1306,8 @@ func (this *compiler) getConnectionCodes(indent string) string {
 			receiver = "this." + receiver
 		}
 
-		signal, signalParams := parseSignature(n.Signal)
-		slot, slotParams := parseSignature(n.Slot)
+		signal, signalParams := this.parseSignature(n.Signal)
+		slot, slotParams := this.parseSignature(n.Slot)
 
 		// Check params
 
@@ -1461,6 +1461,57 @@ func (this *UI%s) RetranslateUi(%s *widgets.%s) {
 	return ioutil.WriteFile(goFile, []byte(code), 0644)
 }
 
+func (this *compiler) needSubclassing() bool {
+	if len(this.connections) == 0 {
+		return false
+	}
+
+	for _, conn := range this.connections {
+		if conn.Receiver == this.widget.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (this *compiler) generateSlotOverrideFunctionCode() string {
+	codes := []string{}
+
+	var addCode = func (code string) {
+		codes = append(codes, code)
+	}
+
+	for _, conn := range this.connections {
+		if conn.Receiver != this.widget.Name {
+			continue
+		}
+
+		slot, slotParams := this.parseSignature(conn.Slot)
+
+		delcaredArgs := make([]string, len(slotParams))
+		for i, paramType := range slotParams {
+			delcaredArgs[i] = fmt.Sprintf("arg%d %s", i, paramType)
+		}
+
+		callArgs := make([]string, len(slotParams))
+		for i, _ := range slotParams {
+			callArgs[i] = fmt.Sprintf("arg%d", i)
+		}
+
+		goSlot := ToCamelCase(slot)
+		code := fmt.Sprintf(`func (this *Window) %s(%s) {
+	this.%s.%s(%s)
+	// TODO: Add code here
+}`, goSlot,
+			strings.Join(delcaredArgs, ", "),
+			this.widget.Class,
+			goSlot,
+			strings.Join(callArgs, ", "))
+		addCode(code)
+	}
+	return strings.Join(codes, "\n\n")
+}
+
 func (this *compiler) GenerateTestCode(goFile string, genPackage string) error {
 	var uiPackage string
 
@@ -1478,7 +1529,9 @@ func (this *compiler) GenerateTestCode(goFile string, genPackage string) error {
 		widgetType = "Window"
 	}
 
-	code := fmt.Sprintf(`package main
+	var code string
+	if this.needSubclassing() {
+		code = fmt.Sprintf(`package main
 
 import (
 	"github.com/therecipe/qt/widgets"
@@ -1500,6 +1553,15 @@ func NewWidget(parent widgets.QWidget_ITF) *Window {
 	return window
 }
 
+// Generated Override Slots
+
+%s
+
+// TODO: Add UI logic here
+func (this *Window) TestFunction() {
+	// I am a test function.
+}
+
 func main() {
 	app := widgets.NewQApplication(len(os.Args), os.Args)
 	w := NewWidget(nil)
@@ -1508,11 +1570,57 @@ func main() {
 	os.Exit(app.Exec())
 }
 `, genPackage,
-		this.widget.Class,
-		uiPackage,
-		this.getClassName(),
-		widgetType,
-		this.widget.Class)
+			this.widget.Class,
+			uiPackage,
+			this.getClassName(),
+			widgetType,
+			this.widget.Class,
+			this.generateSlotOverrideFunctionCode(),
+		)
+	} else {
+		code = fmt.Sprintf(`package main
+
+import (
+	"github.com/therecipe/qt/widgets"
+	"github.com/therecipe/qt/core"
+	"os"
+	%s
+)
+
+type Window struct {
+	%sUI%s
+	Widget *widgets.%s
+}
+
+func NewWidget(parent widgets.QWidget_ITF) *Window {
+	window := &Window{
+		Widget: widgets.New%s(parent, core.Qt__%s),
+	}
+
+	window.SetupUI(window.Widget)
+	return window
+}
+
+// TODO: Add UI logic here
+func (this *Window) TestFunction() {
+	// I am a test function.
+}
+
+func main() {
+	app := widgets.NewQApplication(len(os.Args), os.Args)
+	w := NewWidget(nil)
+	w.Widget.Show()
+
+	os.Exit(app.Exec())
+}
+`, genPackage,
+			uiPackage,
+			this.getClassName(),
+			this.widget.Class,
+			this.widget.Class,
+			widgetType)
+	}
+
 
 	dir := filepath.Dir(goFile)
 	os.MkdirAll(dir, 0755)

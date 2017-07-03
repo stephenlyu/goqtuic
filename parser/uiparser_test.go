@@ -46,7 +46,7 @@ var _ = Describe("TestConnection", func() {
 	})
 })
 
-var _ = Describe("TestMoreParser", func() {
+var _ = XDescribe("TestMoreParser", func() {
 	It("test", func() {
 		root := "../ui"
 		fileList, err := ioutil.ReadDir(root)

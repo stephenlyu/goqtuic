@@ -20,6 +20,11 @@ func NewDialog(parent widgets.QWidget_ITF) *Dialog {
 	return dialog
 }
 
+// TODO: Add more functions here
+func (this *Dialog) TestFunction() {
+	// I am a test function.
+}
+
 func main() {
 	app := widgets.NewQApplication(len(os.Args), os.Args)
 	w := NewDialog(nil)
