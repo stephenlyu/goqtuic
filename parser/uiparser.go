@@ -1,7 +1,7 @@
 package parser
 
 import (
-	xmlx "github.com/jteeuwen/go-pkg-xmlx"
+	xmlx "github.com/stephenlyu/go-pkg-xmlx"
 	"log"
 	"fmt"
 )
