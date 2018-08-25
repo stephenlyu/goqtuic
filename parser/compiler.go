@@ -745,28 +745,37 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 	// Set Properties
 
 	for _, prop := range layout.Properties {
-		if prop.Name == "leftMargin" {
-			leftMargin, _ = prop.Value.(int)
-		} else if prop.Name == "rightMargin" {
-			rightMargin, _ = prop.Value.(int)
-		} else if prop.Name == "topMargin" {
-			topMargin, _ = prop.Value.(int)
-		} else if prop.Name == "bottomMargin" {
-			bottomMargin, _ = prop.Value.(int)
-		} else if prop.Name == "spacing" {
-			spacing, _ = prop.Value.(int)
+		value := prop.Value.(int)
+		switch prop.Name {
+		case "margin":
+			leftMargin = value
+			rightMargin = value
+			topMargin = value
+			bottomMargin = value
+		case "leftMargin":
+			leftMargin = value
+		case "rightMargin":
+			rightMargin = value
+		case "topMargin":
+			topMargin = value
+		case "bottomMargin":
+			bottomMargin = value
+		case "spacing":
+			spacing = value
 		}
 	}
 	this.addSetupUICode(fmt.Sprintf("this.%s.SetContentsMargins(%d, %d, %d, %d)", layoutName, leftMargin, topMargin, rightMargin, bottomMargin))
 	this.addSetupUICode(fmt.Sprintf("this.%s.SetSpacing(%d)", layoutName, spacing))
 	for _, prop := range layout.Properties {
-		if prop.Name == "leftMargin" {
-		} else if prop.Name == "rightMargin" {
-		} else if prop.Name == "topMargin" {
-		} else if prop.Name == "bottomMargin" {
-		} else if prop.Name == "spacing" {
-		} else {
-			this.setProperty("this." + layoutName, prop)
+		switch prop.Name {
+		case "margin":
+		case "leftMargin":
+		case "rightMargin":
+		case "topMargin":
+		case "bottomMargin":
+		case "spacing":
+		default:
+			this.setProperty("this."+layoutName, prop)
 		}
 	}
 
