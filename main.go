@@ -11,11 +11,26 @@ import (
 )
 
 func translateUIFile(uiFile string, destDir string, testGoFile string) error {
-	fmt.Printf("Translating %s...\n", uiFile)
 	base := filepath.Base(uiFile)
 	destDir, _ = filepath.Abs(filepath.Clean(destDir))
 
 	goFile := filepath.Join(destDir, strings.Replace(base, ".", "_", -1) + ".go")
+
+	// 检查文件更新时间，如果go文件时间比ui文件晚，就不重新生成
+	goStat, err := os.Stat(goFile)
+	if err == nil {
+		uiStat, err := os.Stat(uiFile)
+		if err != nil {
+			return err
+		}
+
+		if goStat.ModTime().UnixNano() > uiStat.ModTime().UnixNano() {
+			return nil
+		}
+	}
+
+	fmt.Printf("Translating %s...\n", uiFile)
+
 	packageName := filepath.Base(destDir)
 
 	err, compiler := parser.NewCompiler(uiFile)
