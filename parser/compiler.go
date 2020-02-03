@@ -179,6 +179,8 @@ func (this *compiler) enumToString(enum string) string {
 		fallthrough
 	case "QLineEdit":
 		fallthrough
+	case "QLayout", "QFormLayout":
+		fallthrough
 	case "QAbstractItemView":
 		this.addImport("widgets")
 		return fmt.Sprintf("widgets.%s", strings.Replace(enum, ":", "_", -1))
@@ -745,23 +747,27 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 	// Set Properties
 
 	for _, prop := range layout.Properties {
-		value := prop.Value.(int)
-		switch prop.Name {
-		case "margin":
-			leftMargin = value
-			rightMargin = value
-			topMargin = value
-			bottomMargin = value
-		case "leftMargin":
-			leftMargin = value
-		case "rightMargin":
-			rightMargin = value
-		case "topMargin":
-			topMargin = value
-		case "bottomMargin":
-			bottomMargin = value
-		case "spacing":
-			spacing = value
+		switch prop.Value.(type) {
+		case int:
+			value := prop.Value.(int)
+			switch prop.Name {
+			case "margin":
+				leftMargin = value
+				rightMargin = value
+				topMargin = value
+				bottomMargin = value
+			case "leftMargin":
+				leftMargin = value
+			case "rightMargin":
+				rightMargin = value
+			case "topMargin":
+				topMargin = value
+			case "bottomMargin":
+				bottomMargin = value
+			case "spacing":
+				spacing = value
+			}
+		case *Enum:
 		}
 	}
 	this.addSetupUICode(fmt.Sprintf("this.%s.SetContentsMargins(%d, %d, %d, %d)", layoutName, leftMargin, topMargin, rightMargin, bottomMargin))
@@ -1232,6 +1238,8 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 			case "QFrame":
 			case "QSplitter":
 			case "QMenuBar":
+			case "QScrollArea":
+				this.addSetupUICode(fmt.Sprintf("this.%s.SetWidget(this.%s)", widgetName, childWidgetName))
 			default:
 				log.Warnf("Should add code for %s inner widget?", widgetName)
 			}
