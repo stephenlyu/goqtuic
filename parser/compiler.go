@@ -181,7 +181,7 @@ func (this *compiler) enumToString(enum string) string {
 		fallthrough
 	case "QLayout", "QFormLayout":
 		fallthrough
-	case "QAbstractItemView":
+	case "QAbstractItemView", "QProgressBar":
 		this.addImport("widgets")
 		return fmt.Sprintf("widgets.%s", strings.Replace(enum, ":", "_", -1))
 	}
