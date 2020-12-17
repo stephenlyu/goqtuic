@@ -1321,6 +1321,8 @@ outer:
 
 		if receiver != this.RootWidgetName {
 			receiver = "this." + receiver
+		} else {
+			receiver = "this"
 		}
 
 		signal, signalParams := this.parseSignature(n.Signal)
