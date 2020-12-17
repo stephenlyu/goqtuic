@@ -13,7 +13,7 @@ type QSize struct {
 }
 
 type QRect struct {
-	X, Y int
+	X, Y          int
 	Width, Height int
 }
 
@@ -26,7 +26,7 @@ type QSizeF struct {
 }
 
 type QRectF struct {
-	X, Y float64
+	X, Y          float64
 	Width, Height float64
 }
 
@@ -39,21 +39,21 @@ type Url struct {
 }
 
 type QFont struct {
-	Family string
-	PointSize int
-	Weight int
-	Italic bool
-	Bold bool
-	Underline bool
-	Strikeout bool
-	AntiAliasing bool
+	Family        string
+	PointSize     int
+	Weight        int
+	Italic        bool
+	Bold          bool
+	Underline     bool
+	Strikeout     bool
+	AntiAliasing  bool
 	StyleStrategy string
-	Kerning bool
+	Kerning       bool
 }
 
 type QLocale struct {
 	Language string
-	Country string
+	Country  string
 }
 
 type Enum struct {
@@ -81,23 +81,23 @@ type Time struct {
 }
 
 type DateTime struct {
-	Year, Month, Day int
+	Year, Month, Day     int
 	Hour, Minute, Second int
 }
 
 type String struct {
-	NotR bool
+	NotR  bool
 	Value string
 }
 
 type StringList struct {
-	NotR bool
+	NotR    bool
 	Strings []string
 }
 
 type ResourcePixmap struct {
 	Resource string
-	Alias string
+	Alias    string
 }
 
 type ResourceIcon struct {
@@ -106,56 +106,56 @@ type ResourceIcon struct {
 
 type QSizePolicy struct {
 	VSizeType, HSizeType string
-	HorStretch int
-	VerStretch int
+	HorStretch           int
+	VerStretch           int
 }
 
 type Attribute struct {
-	Name string
+	Name  string
 	Value interface{}
 }
 
 type QColor struct {
 	Alpha int
-	Red int
+	Red   int
 	Green int
-	Blue int
+	Blue  int
 }
 
 type GradientStop struct {
 	Position float64
-	Colors []*QColor
+	Colors   []*QColor
 }
 
 type QGrdient struct {
 	GradientStops []*GradientStop
 
-	StartX, StartY float64
-	EndX, EndY float64
+	StartX, StartY     float64
+	EndX, EndY         float64
 	CentralX, CentralY float64
-	FocalX, FocalY float64
-	Radius float64
-	Angle float64
-	Type string
-	Spread string
-	CoordinateMode string
+	FocalX, FocalY     float64
+	Radius             float64
+	Angle              float64
+	Type               string
+	Spread             string
+	CoordinateMode     string
 }
 
 type QBrush struct {
 	BrushStyle string
-	Color *QColor
-	Texture *Property
-	Gradient *QGrdient
+	Color      *QColor
+	Texture    *Property
+	Gradient   *QGrdient
 }
 
 type QColorRole struct {
-	Role string
+	Role  string
 	Brush *QBrush
 }
 
 type ColorGroupItem struct {
-	IsColor bool
-	Color *QColor
+	IsColor   bool
+	Color     *QColor
 	ColorRole *QColorRole
 }
 
@@ -164,7 +164,7 @@ type ColorGroup struct {
 }
 
 type QPalette struct {
-	Active *ColorGroup
+	Active   *ColorGroup
 	InActive *ColorGroup
 	Disabled *ColorGroup
 }
@@ -174,53 +174,53 @@ type QPixmap struct {
 }
 
 type QIcon struct {
-	NormalOff string
-	NormalOn string
+	NormalOff   string
+	NormalOn    string
 	DisabledOff string
-	DisabledOn string
-	ActiveOff string
-	ActiveOn string
+	DisabledOn  string
+	ActiveOff   string
+	ActiveOn    string
 	SelectedOff string
-	SelectedOn string
+	SelectedOn  string
 
 	Theme string
 }
 
 type Property struct {
-	Name string
+	Name   string
 	StdSet bool
-	Value interface{}
+	Value  interface{}
 }
 
 type QSpacer struct {
-	Name string
+	Name       string
 	Properties []*Property
 }
 
 type QWidgetItem struct {
-	Props []*Property
-	Items []*QWidgetItem 		// TODO: what's this?
+	Props       []*Property
+	Items       []*QWidgetItem // TODO: what's this?
 	Row, Column int
 }
 
 type QLayoutItem struct {
-	Row, Column int
+	Row, Column      int
 	Rowspan, Colspan int
-	Alignment string
-	View interface{}
+	Alignment        string
+	View             interface{}
 }
 
 type QLayout struct {
-	Class string
-	Name string
-	Stretch string
-	RowStretch string
-	ColumnStretch string
-	RowMinimumHeight string
+	Class              string
+	Name               string
+	Stretch            string
+	RowStretch         string
+	ColumnStretch      string
+	RowMinimumHeight   string
 	ColumnMinimumWidth string
 
 	Properties []*Property
-	Items []*QLayoutItem
+	Items      []*QLayoutItem
 	Attributes []*Property
 }
 
@@ -235,10 +235,10 @@ type Column struct {
 type ActionGroup struct {
 	Name string
 
-	Actions []*Action
+	Actions      []*Action
 	ActionGroups []*ActionGroup
-	Props []*Property
-	Attributes []*Property
+	Props        []*Property
+	Attributes   []*Property
 }
 
 type ActionRef struct {
@@ -246,37 +246,37 @@ type ActionRef struct {
 }
 
 type Action struct {
-	Name string
-	Menu string
-	Props []*Property
+	Name       string
+	Menu       string
+	Props      []*Property
 	Attributes []*Property
 }
 
 type Connection struct {
-	Sender string
-	Signal string
+	Sender   string
+	Signal   string
 	Receiver string
-	Slot string
+	Slot     string
 }
 
 type QWidget struct {
 	// No element: class, script, widgetdata
 
-	Class string
-	Name string
+	Class  string
+	Name   string
 	Native bool
 
 	Properties []*Property
 	Attributes []*Attribute
 
-	Rows []*Row
+	Rows    []*Row
 	Columns []*Column
-	Items[] *QWidgetItem 		// ComboBox item
+	Items   []*QWidgetItem // ComboBox item
 
-	Layout *QLayout
-	Widgets []*QWidget
-	Actions []*Action
+	Layout        *QLayout
+	Widgets       []*QWidget
+	Actions       []*Action
 	ActionsGroups []*ActionGroup
-	AddActions []*ActionRef
-	ZOrders []string
+	AddActions    []*ActionRef
+	ZOrders       []string
 }

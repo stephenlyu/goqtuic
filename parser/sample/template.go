@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/therecipe/qt/widgets"
 	"github.com/therecipe/qt/core"
+	"github.com/therecipe/qt/widgets"
 )
 
 type XUIDialog struct {
-	Label1 *widgets.QLabel
+	Label1         *widgets.QLabel
 	VerticalLayout *widgets.QVBoxLayout
 }
 

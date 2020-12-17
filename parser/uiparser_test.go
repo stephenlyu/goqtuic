@@ -1,10 +1,10 @@
 package parser
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	"io/ioutil"
 	"path/filepath"
-	"fmt"
 )
 
 var _ = Describe("TestParser", func() {

@@ -1,16 +1,16 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
 	"github.com/z-ray/log"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
-	"os"
-	"io/ioutil"
-	"unicode/utf8"
+	"strings"
 	"unicode"
-	"bytes"
+	"unicode/utf8"
 )
 
 type compiler struct {
@@ -20,27 +20,27 @@ type compiler struct {
 
 	Imports map[string]bool
 
-	FontDefined bool
+	FontDefined       bool
 	SizePolicyDefined bool
-	PaletteDefined bool
-	BrushDefined bool
-	ListItemDefined bool
-	TableItemDefined bool
-	IconDefined bool
+	PaletteDefined    bool
+	BrushDefined      bool
+	ListItemDefined   bool
+	TableItemDefined  bool
+	IconDefined       bool
 
 	SortingEnabledDefined bool
 
-	VariableCodes []string
-	SetupUICodes []string
+	VariableCodes  []string
+	SetupUICodes   []string
 	TranslateCodes []string
 
 	AddActionCodes []string
-	BuddyCodes []string
+	BuddyCodes     []string
 
 	SetCurrentIndexCodes []string
 
 	DefinedButtonGroups map[string]bool
-	DefinedTreeItems map[string]bool
+	DefinedTreeItems    map[string]bool
 }
 
 // ToCamelCase can convert all lower case characters behind underscores
@@ -116,10 +116,10 @@ func NewCompiler(uiFile string) (error, *compiler) {
 	}
 
 	return nil, &compiler{
-		parser: parser,
-		Imports: make(map[string]bool),
+		parser:              parser,
+		Imports:             make(map[string]bool),
 		DefinedButtonGroups: make(map[string]bool),
-		DefinedTreeItems: make(map[string]bool),
+		DefinedTreeItems:    make(map[string]bool),
 	}
 }
 
@@ -239,7 +239,7 @@ func (this *compiler) defineTableItem() {
 }
 
 func (this *compiler) defineIcon() {
-	if !this.IconDefined{
+	if !this.IconDefined {
 		this.addImport("gui")
 		this.addSetupUICode("var icon *gui.QIcon")
 		this.IconDefined = true
@@ -269,7 +269,7 @@ func (this *compiler) defineTreeItem() string {
 	}
 
 	this.addImport("widgets")
-	varName := fmt.Sprintf("treeItem%d", len(this.DefinedTreeItems) + 1)
+	varName := fmt.Sprintf("treeItem%d", len(this.DefinedTreeItems)+1)
 	this.addSetupUICode(fmt.Sprintf("var %s *widgets.QTreeWidgetItem", varName))
 	this.DefinedTreeItems[varName] = true
 	return varName
@@ -287,13 +287,13 @@ func (this *compiler) undefineTreeItem(varName string) {
 }
 
 func (this *compiler) defineSortingEnabled() {
-	if !this.SortingEnabledDefined{
+	if !this.SortingEnabledDefined {
 		this.addTranslateCode("var sortingEnabled bool")
 		this.SortingEnabledDefined = true
 	}
 }
 
-func (this *compiler) setProperty(name string, prop *Property){
+func (this *compiler) setProperty(name string, prop *Property) {
 	this.setPropertyEx(name, "", prop)
 }
 
@@ -357,7 +357,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 			color.Alpha)
 		this.addSetupUICode(fmt.Sprintf("%s.Set%s(%s%s)", name, this.toCamelCase(prop.Name), paramPrefix, valueStr))
 	case string:
-		switch(prop.Name) {
+		switch prop.Name {
 		case "buddy":
 			valueStr, _ := prop.Value.(string)
 			this.addBuddyCode(fmt.Sprintf("%s.Set%s(%sthis.%s)", name, this.toCamelCase(prop.Name), paramPrefix, this.transVarName(valueStr)))
@@ -424,7 +424,7 @@ func (this *compiler) setPropertyEx(name string, paramPrefix string, prop *Prope
 		this.addImport("core")
 		this.addImport("gui")
 		this.addSetupUICode(fmt.Sprintf("palette = gui.NewQPalette()"))
-		setPalette := func (groupName string, colorGroup *ColorGroup) {
+		setPalette := func(groupName string, colorGroup *ColorGroup) {
 			for _, item := range colorGroup.Items {
 				if item.IsColor {
 					log.Error("Color role required for palette")
@@ -630,7 +630,7 @@ func (this *compiler) getClassName() string {
 	case "MainWindow":
 		baseName := filepath.Base(this.uiFile)
 		xName := filepath.Ext(baseName)
-		mainName := baseName[:len(baseName) - len(xName)]
+		mainName := baseName[:len(baseName)-len(xName)]
 		return strings.Replace(fmt.Sprintf("%s%s", ToCamelCase(mainName), widgetName), "_", "", -1)
 	default:
 		return ToCamelCase(widgetName)
@@ -791,12 +791,12 @@ func (this *compiler) translateLayout(parentName string, layout *QLayout) {
 	// Translate items
 	if layout.Items != nil {
 		for _, item := range layout.Items {
-			this.translateLayoutItem(parentName, "this." + layoutName, layout.Class, item)
+			this.translateLayoutItem(parentName, "this."+layoutName, layout.Class, item)
 		}
 	}
 
 	// Set stretch & minimum size
-	setCommaSplitProp := func (propName string, stretchStr string) {
+	setCommaSplitProp := func(propName string, stretchStr string) {
 		if stretchStr != "" {
 			parts := strings.Split(stretchStr, ",")
 			for i, part := range parts {
@@ -826,10 +826,10 @@ func (this *compiler) translateAction(action *Action) {
 		if prop.Name == "shortcut" {
 			value, _ := prop.Value.(*String)
 			this.addImport("gui")
-			this.addTranslateCode(fmt.Sprintf("%s.Set%s(gui.QKeySequence_FromString(_translate(\"%s\", %s, \"\", -1), gui.QKeySequence__NativeText))", "this." + varName,
+			this.addTranslateCode(fmt.Sprintf("%s.Set%s(gui.QKeySequence_FromString(_translate(\"%s\", %s, \"\", -1), gui.QKeySequence__NativeText))", "this."+varName,
 				this.toCamelCase(prop.Name), this.RootWidgetName, strconv.Quote(value.Value)))
 		} else {
-			this.setProperty("this." + varName, prop)
+			this.setProperty("this."+varName, prop)
 		}
 	}
 }
@@ -1182,7 +1182,7 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 			currentIndex, _ := prop.Value.(int)
 			this.addSetCurrentIndexCode(fmt.Sprintf("this.%s.SetCurrentIndex(%d)", widgetName, currentIndex))
 		} else {
-			this.setProperty("this." + widgetName, prop)
+			this.setProperty("this."+widgetName, prop)
 		}
 	}
 
@@ -1210,12 +1210,12 @@ func (this *compiler) translateWidget(parentName string, widget *QWidget) {
 	}
 
 	if widget.Layout != nil {
-		this.translateLayout("this." + widgetName, widget.Layout)
+		this.translateLayout("this."+widgetName, widget.Layout)
 	}
 
 	if widget.Widgets != nil {
 		for _, childWidget := range widget.Widgets {
-			this.translateWidget("this." + widgetName, childWidget)
+			this.translateWidget("this."+widgetName, childWidget)
 			childWidgetName := this.transVarName(childWidget.Name)
 			switch widget.Class {
 			case "QTabWidget":
@@ -1276,14 +1276,14 @@ func (this *compiler) getTabStopCodes(indent string) string {
 		return ""
 	}
 
-	lines := make([]string, len(this.tabStops) - 1)
+	lines := make([]string, len(this.tabStops)-1)
 
 	for i, n := range this.tabStops {
-		if i == len(this.tabStops) - 1 {
+		if i == len(this.tabStops)-1 {
 			break
 		}
 
-		next := this.tabStops[i + 1]
+		next := this.tabStops[i+1]
 		lines[i] = fmt.Sprintf("%s%s.SetTabOrder(this.%s, this.%s)", indent, this.RootWidgetName, this.transVarName(n), this.transVarName(next))
 	}
 	return "\n" + strings.Join(lines, "\n")
@@ -1294,7 +1294,7 @@ func (this *compiler) parseSignature(signature string) (name string, params []st
 	j := strings.Index(signature, ")")
 
 	name = strings.TrimSpace(signature[:i])
-	argString := strings.TrimSpace(signature[i + 1:j])
+	argString := strings.TrimSpace(signature[i+1 : j])
 	if argString != "" {
 		params = strings.Split(argString, ",")
 	}
@@ -1308,7 +1308,7 @@ func (this *compiler) getConnectionCodes(indent string) string {
 
 	var lines []string
 
-	outer:
+outer:
 	for _, n := range this.connections {
 		var sender, receiver string
 
@@ -1346,7 +1346,7 @@ func (this *compiler) getConnectionCodes(indent string) string {
 		} else {
 			// Wrap slot to fit signal prototype
 			wrapperCodes := []string{}
-			var addCode = func (line string) {
+			var addCode = func(line string) {
 				wrapperCodes = append(wrapperCodes, line)
 			}
 
@@ -1399,9 +1399,9 @@ func (this *compiler) GenerateCode(packageName string, goFile string) error {
 					}
 				}
 			case "QWidget":
-				 if this.widget.Class == "QMainWindow" {
-					 this.addSetupUICode(fmt.Sprintf("%s.SetCentralWidget(this.%s)", widgetName, this.transVarName(widget.Name)))
-				 }
+				if this.widget.Class == "QMainWindow" {
+					this.addSetupUICode(fmt.Sprintf("%s.SetCentralWidget(this.%s)", widgetName, this.transVarName(widget.Name)))
+				}
 			}
 		}
 	}
@@ -1494,7 +1494,7 @@ func (this *compiler) needSubclassing() bool {
 func (this *compiler) generateSlotOverrideFunctionCode() string {
 	codes := []string{}
 
-	var addCode = func (code string) {
+	var addCode = func(code string) {
 		codes = append(codes, code)
 	}
 
@@ -1637,7 +1637,6 @@ func main() {
 			this.widget.Class,
 			widgetType)
 	}
-
 
 	dir := filepath.Dir(goFile)
 	os.MkdirAll(dir, 0755)

@@ -2,19 +2,19 @@ package main
 
 import (
 	"flag"
-	"os"
+	"fmt"
+	"github.com/stephenlyu/goqtuic/parser"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
-	"github.com/stephenlyu/goqtuic/parser"
-	"fmt"
 )
 
 func translateUIFile(uiFile string, destDir string, testGoFile string) error {
 	base := filepath.Base(uiFile)
 	destDir, _ = filepath.Abs(filepath.Clean(destDir))
 
-	goFile := filepath.Join(destDir, strings.Replace(base, ".", "_", -1) + ".go")
+	goFile := filepath.Join(destDir, strings.Replace(base, ".", "_", -1)+".go")
 
 	// 检查文件更新时间，如果go文件时间比ui文件晚，就不重新生成
 	goStat, err := os.Stat(goFile)
@@ -54,8 +54,8 @@ func translateUIFile(uiFile string, destDir string, testGoFile string) error {
 				if genPackage[0] == filepath.Separator {
 					genPackage = genPackage[1:]
 				}
-				if genPackage[len(genPackage) - 1] == filepath.Separator {
-					genPackage = genPackage[:len(genPackage) - 1]
+				if genPackage[len(genPackage)-1] == filepath.Separator {
+					genPackage = genPackage[:len(genPackage)-1]
 				}
 			}
 		}
@@ -72,7 +72,6 @@ func main() {
 	testGoFile := flag.String("go-test-file", "", "Test go file path")
 
 	flag.Parse()
-
 
 	stat, err := os.Stat(*uiFile)
 	if err != nil {

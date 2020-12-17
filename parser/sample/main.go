@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/therecipe/qt/widgets"
 	"github.com/therecipe/qt/core"
+	"github.com/therecipe/qt/widgets"
 	"os"
 )
 
