@@ -1,21 +1,21 @@
 package parser
 
 import (
+	"fmt"
 	xmlx "github.com/stephenlyu/go-pkg-xmlx"
 	"log"
-	"fmt"
 )
 
 type parser struct {
 	doc *xmlx.Document
 
 	uiFile string
-	class string
+	class  string
 
-	buttonGroups []string
-	tabStops []string
+	buttonGroups  []string
+	tabStops      []string
 	layoutDefault *LayoutDefault
-	connections []*Connection
+	connections   []*Connection
 
 	widget *QWidget
 }
@@ -72,16 +72,16 @@ func (this *parser) parseRectF(n *xmlx.Node) *QRectF {
 
 func (this *parser) parseFont(n *xmlx.Node) *QFont {
 	return &QFont{
-		Family: n.S("", "family"),
-		PointSize: n.I("", "pointsize"),
-		Weight: n.I("", "weight"),
-		Italic: n.B("", "bool"),
-		Bold: n.B("", "bool"),
-		Underline: n.B("", "bool"),
-		Strikeout: n.B("", "bool"),
-		AntiAliasing: n.B("", "bool"),
+		Family:        n.S("", "family"),
+		PointSize:     n.I("", "pointsize"),
+		Weight:        n.I("", "weight"),
+		Italic:        n.B("", "bool"),
+		Bold:          n.B("", "bool"),
+		Underline:     n.B("", "bool"),
+		Strikeout:     n.B("", "bool"),
+		AntiAliasing:  n.B("", "bool"),
 		StyleStrategy: n.S("", "string"),
-		Kerning: n.B("", "bool"),
+		Kerning:       n.B("", "bool"),
 	}
 }
 
@@ -102,19 +102,19 @@ func (this *parser) parseGradient(n *xmlx.Node) *QGrdient {
 		stops[i] = this.parseGradientStop(ch)
 	}
 	return &QGrdient{
-		GradientStops: stops,
-		StartX: n.Af64("", "startx"),
-		StartY: n.Af64("", "starty"),
-		EndX: n.Af64("", "endx"),
-		EndY: n.Af64("", "endy"),
-		CentralX: n.Af64("", "centralx"),
-		CentralY: n.Af64("", "centraly"),
-		FocalX: n.Af64("", "focalx"),
-		FocalY: n.Af64("", "focaly"),
-		Radius: n.Af64("", "radius"),
-		Angle: n.Af64("", "angle"),
-		Type: n.S("", "type"),
-		Spread: n.S("", "spread"),
+		GradientStops:  stops,
+		StartX:         n.Af64("", "startx"),
+		StartY:         n.Af64("", "starty"),
+		EndX:           n.Af64("", "endx"),
+		EndY:           n.Af64("", "endy"),
+		CentralX:       n.Af64("", "centralx"),
+		CentralY:       n.Af64("", "centraly"),
+		FocalX:         n.Af64("", "focalx"),
+		FocalY:         n.Af64("", "focaly"),
+		Radius:         n.Af64("", "radius"),
+		Angle:          n.Af64("", "angle"),
+		Type:           n.S("", "type"),
+		Spread:         n.S("", "spread"),
 		CoordinateMode: n.S("", "coordinatemode"),
 	}
 }
@@ -169,9 +169,9 @@ func (this *parser) parseString(n *xmlx.Node) *String {
 func (this *parser) parseColor(n *xmlx.Node) *QColor {
 	return &QColor{
 		Alpha: n.Ai("", "alpha"),
-		Red: n.I("", "red"),
+		Red:   n.I("", "red"),
 		Green: n.I("", "green"),
-		Blue: n.I("", "blue"),
+		Blue:  n.I("", "blue"),
 	}
 }
 
@@ -179,14 +179,14 @@ func (this *parser) parseBrush(n *xmlx.Node) *QBrush {
 	ch := n.SelectNode("", "color")
 	return &QBrush{
 		BrushStyle: n.As("", "brushstyle"),
-		Color: this.parseColor(ch),
+		Color:      this.parseColor(ch),
 	}
 }
 
 func (this *parser) parseColorRole(n *xmlx.Node) *QColorRole {
 	ch := n.SelectNode("", "brush")
 	return &QColorRole{
-		Role: n.As("", "role"),
+		Role:  n.As("", "role"),
 		Brush: this.parseBrush(ch),
 	}
 }
@@ -197,11 +197,11 @@ func (this *parser) parseColorGroup(nodes []*xmlx.Node) *ColorGroup {
 		if n.Name.Local == "color" {
 			items[i] = &ColorGroupItem{
 				IsColor: true,
-				Color: this.parseColor(n),
+				Color:   this.parseColor(n),
 			}
 		} else if n.Name.Local == "colorrole" {
 			items[i] = &ColorGroupItem{
-				IsColor: false,
+				IsColor:   false,
 				ColorRole: this.parseColorRole(n),
 			}
 		} else {
@@ -233,15 +233,15 @@ func (this *parser) parsePalette(n *xmlx.Node) *QPalette {
 
 func (this *parser) parserIconSet(n *xmlx.Node) *QIcon {
 	return &QIcon{
-		NormalOff: n.S("", "normaloff"),
-		NormalOn: n.S("", "normalon"),
+		NormalOff:   n.S("", "normaloff"),
+		NormalOn:    n.S("", "normalon"),
 		DisabledOff: n.S("", "disabledoff"),
-		DisabledOn: n.S("", "disabledon"),
-		ActiveOff: n.S("", "activeoff"),
-		ActiveOn: n.S("", "activeon"),
+		DisabledOn:  n.S("", "disabledon"),
+		ActiveOff:   n.S("", "activeoff"),
+		ActiveOn:    n.S("", "activeon"),
 		SelectedOff: n.S("", "selectedoff"),
-		SelectedOn: n.S("", "selectedon"),
-		Theme: n.As("", "theme"),
+		SelectedOn:  n.S("", "selectedon"),
+		Theme:       n.As("", "theme"),
 	}
 }
 
@@ -272,8 +272,8 @@ func (this *parser) parseAttribute(n *xmlx.Node) *Attribute {
 
 func (this *parser) parseSizePolicy(n *xmlx.Node) *QSizePolicy {
 	return &QSizePolicy{
-		HSizeType: n.As("", "hsizetype"),
-		VSizeType: n.As("", "vsizetype"),
+		HSizeType:  n.As("", "hsizetype"),
+		VSizeType:  n.As("", "vsizetype"),
 		HorStretch: n.I("", "horstretch"),
 		VerStretch: n.I("", "verstretch"),
 	}
@@ -298,7 +298,7 @@ func (this *parser) parseLayoutItem(n *xmlx.Node) *QLayoutItem {
 
 	children := this.elementChildren(n)
 	if len(children) != 1 {
-		for _, ch := range (children) {
+		for _, ch := range children {
 			fmt.Println(ch)
 		}
 
@@ -319,12 +319,12 @@ func (this *parser) parseLayoutItem(n *xmlx.Node) *QLayoutItem {
 		log.Fatalf("Bad layout item child type %s", child.Name.Local)
 	}
 	return &QLayoutItem{
-		Row: row,
-		Column: column,
-		Rowspan: rowSpan,
-		Colspan: colSpan,
+		Row:       row,
+		Column:    column,
+		Rowspan:   rowSpan,
+		Colspan:   colSpan,
 		Alignment: alignment,
-		View: view,
+		View:      view,
 	}
 }
 
@@ -371,7 +371,6 @@ func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 	rowMinimumHeight := n.As("", "rowminimumheight")
 	columnMinimumWidth := n.As("", "columnminimumwidth")
 
-
 	properties := []*Property{}
 	items := []*QLayoutItem{}
 	attributes := []*Property{}
@@ -392,16 +391,16 @@ func (this *parser) parseLayout(n *xmlx.Node) *QLayout {
 	}
 
 	return &QLayout{
-		Class: class,
-		Name: name,
-		Stretch: stretch,
-		RowStretch: rowStretch,
-		ColumnStretch: columnStretch,
-		RowMinimumHeight: rowMinimumHeight,
+		Class:              class,
+		Name:               name,
+		Stretch:            stretch,
+		RowStretch:         rowStretch,
+		ColumnStretch:      columnStretch,
+		RowMinimumHeight:   rowMinimumHeight,
 		ColumnMinimumWidth: columnMinimumWidth,
-		Properties: properties,
-		Items: items,
-		Attributes: attributes,
+		Properties:         properties,
+		Items:              items,
+		Attributes:         attributes,
 	}
 }
 
@@ -419,9 +418,9 @@ func (this *parser) parseWidgetItem(n *xmlx.Node) *QWidgetItem {
 	}
 
 	return &QWidgetItem{
-		Props: props,
-		Items: items,
-		Row: n.Ai("", "row"),
+		Props:  props,
+		Items:  items,
+		Row:    n.Ai("", "row"),
 		Column: n.Ai("", "column"),
 	}
 }
@@ -440,10 +439,10 @@ func (this *parser) parseAction(n *xmlx.Node) *Action {
 	}
 
 	return &Action{
-		Props: props,
+		Props:      props,
 		Attributes: attrs,
-		Name: n.As("", "name"),
-		Menu: n.As("", "menu"),
+		Name:       n.As("", "name"),
+		Menu:       n.As("", "menu"),
 	}
 }
 
@@ -472,9 +471,9 @@ func (this *parser) parseActionGroup(n *xmlx.Node) *ActionGroup {
 		actionGroups[i] = this.parseActionGroup(ch)
 	}
 	return &ActionGroup{
-		Props: props,
-		Attributes: attrs,
-		Actions: actions,
+		Props:        props,
+		Attributes:   attrs,
+		Actions:      actions,
 		ActionGroups: actionGroups,
 
 		Name: n.As("", "name"),
@@ -546,21 +545,21 @@ func (this *parser) parseWidget(n *xmlx.Node) *QWidget {
 	}
 
 	return &QWidget{
-		Class: class,
-		Name: name,
+		Class:      class,
+		Name:       name,
 		Properties: properties,
 		Attributes: attributes,
 
-		Rows: rows,
+		Rows:    rows,
 		Columns: columns,
-		Items: items,
+		Items:   items,
 
-		Widgets: widgets,
-		Layout: layout,
-		Actions: actions,
+		Widgets:       widgets,
+		Layout:        layout,
+		Actions:       actions,
 		ActionsGroups: actionGroups,
-		AddActions: addActions,
-		ZOrders: zorders,
+		AddActions:    addActions,
+		ZOrders:       zorders,
 	}
 }
 
@@ -581,7 +580,7 @@ func (this *parser) parseProperty(n *xmlx.Node) *Property {
 	case "cstring":
 		value = n.S("", "cstring")
 	case "cursor":
-		value = &Cursor{ Value:n.I("", "cursor")}
+		value = &Cursor{Value: n.I("", "cursor")}
 	case "cursorShape":
 		value = &CursorShape{Value: n.S("", "cursorShape")}
 	case "cursorshape":
@@ -690,4 +689,3 @@ func (this *parser) Parse() error {
 
 	return nil
 }
-
